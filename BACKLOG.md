@@ -1,0 +1,28 @@
+# MultiCloud Migration & FinOps — backlog
+
+**Date:** 2026-10-09 | **Status:** ASSESSMENT_ONLY | **Cloud deployment:** NOT AUTHORIZED
+
+| Gate | Outcome and acceptance | Status |
+|---|---|---|
+| I0 | Dated inventory, owner map, initial sizing and cost hypotheses | DOCUMENTED_BASELINE; measurement gaps remain |
+| I1 | Regional service/SKU price checks, rendered requests/limits, measured utilization, dependency graph, target HLD | OPEN |
+| I2 | Terraform/Kustomize/Helm non-mutating render and review, least privilege, budgets, teardown runbook | OPEN |
+| I3 | Bounded Instant Payments AKS pilot, authenticated E2E, metering, rollback, destroy | BLOCKED: prior explicit approval |
+| I4 | Equivalent EKS and GKE pilots, comparable evidence and cleanup | BLOCKED: I3 + approval |
+| I5 | Selective TradeOps, Decision AI, Lakehouse, MQ and other app waves | PLANNED_ONLY |
+| I6 | Multi-AZ/stateful resilience, backups, recovery, performance, RPO/RTO and FinOps validation | PLANNED_ONLY |
+
+## I1 entry criteria
+
+- [ ] Read current `cadrage_202682030` classification, roadmap and runtime deployment matrix.
+- [ ] Read-only inventory from CRC + Kind: actual active vs parked pods; render overlays and report requests, limits and P95/P99 CPU/RAM.
+- [ ] Size PVC used bytes, retention, replication, IOPS, network/egress and backup requirements.
+- [ ] Obtain region/date/SKU-specific Azure, AWS and GCP quotes for VM, disks, LB, control plane, NAT, databases, observability and data transfer.
+- [ ] Separate demo 160h, always-on 730h and dedicated stateful operation costs.
+- [ ] Review OpenShift-specific APIs before choosing AKS/EKS/GKE.
+
+## Human approval gate before any paid action
+
+Account/region authorization + cap and alarms + IAM scope + reviewed plan + security/privacy + teardown receipt + explicit go/no-go. No autonomous apply/destroy, no provider tokens in this public repository.
+
+**A published manifest is not deployment evidence; CRC single-node != HA; Kind 3 nodes != production.**

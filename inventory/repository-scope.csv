@@ -1,0 +1,22 @@
+repository,layer,cloud_assessment_role,priority,reason
+cadrage_202682030,L0,GOVERNANCE,REFERENCE,Master roadmap and canonical statuses
+mayabank-multicloud-migration-finops,L0,ASSESSMENT_OWNER,P0,Multi-cloud sizing migration and FinOps decision dossier
+k8s-openshift-cluster-factory,L1,REUSE_PLATFORM_OWNER,P0,Cluster lifecycle and IaC provider contracts
+mayabank-azure-cloud-ai-platform,L1,REUSE_AZURE_OWNER,P0,Azure landing zone and AKS patterns
+openshift-migration-framework,L3,REUSE_MIGRATION_OWNER,P0,Workload cutover and rollback
+shared-platform-services-openshift,L2,REUSE_PLATFORM_OWNER,P0,Platform Operator and identity observability contracts
+argocd-expert-pack,L3,REUSE_GITOPS_OWNER,P0,ArgoCD expertise
+keycloak-enterprise-roadmap-v7,L3,TECHNICAL_DEPENDENCY,P1,Identity specialist
+mayabank-api-management-architecture,L3,TECHNICAL_DEPENDENCY,P1,Kong API platform
+mayabank-instant-payments-resilience-platform,L4,FIRST_PILOT,P0,Payments local CRC runtime proven
+TradeOps-GenAI-Integration,L4,WAVE_CANDIDATE,P1,AI RAG agents MQ and model serving dependencies
+mayabank-ibm-odm-ai-decision-architecture,L4,WAVE_CANDIDATE,P1,Decision API not IBM licensed ODM runtime
+mayabank-ibm-mq-native-ha-openshift-eda-platform,L3,WAVE_CANDIDATE,P2,IBM MQ licensing and stateful qualification
+maya-freelance-mission-intelligence,L4,WAVE_CANDIDATE,P2,Automation product
+enterprise-data-lakehouse-kubernetes-openshift,L3,WAVE_CANDIDATE,P1,Separate Kind specialized data platform
+mayabank-european-payment-processing-platform,L4,WAVE_CANDIDATE,P2,Synthetic product proofs
+mayabank-customer-identity-kyc-digital-banking-architecture,L5,REFERENCE_ONLY,P3,Functional architecture without proven runtime
+mayabank-market-access-algorithmic-trading-architecture,L5,REFERENCE_ONLY,P3,No trading hot path public cloud claim
+maya-secure-agentic-devsecops-platform,L3,REFERENCE_ONLY,P2,Agent and supply chain security specialist
+oracle-exadata-x11m-solution-architecture,L5,REFERENCE_ONLY,P3,Separate licensed Oracle assessment
+mayabank-gcp-event-driven-cloud-architecture,L5,REFERENCE_ONLY,P3,Architecture reference only

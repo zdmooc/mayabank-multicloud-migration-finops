@@ -1,0 +1,34 @@
+version: 1
+as_of: "2026-10-09"
+status: PLANNING_HYPOTHESES_NOT_RUNTIME_PROVEN
+scenarios:
+  - id: targeted-demo
+    active_scope: "Selected POCs only"
+    clusters: 1
+    workers: 2
+    vcpu_per_worker: 4
+    ram_gib_per_worker: 16
+    storage_gib: 150
+    load_balancers: 1
+    run_hours_per_month: 160
+    ha_claim: false
+  - id: portfolio-integration
+    active_scope: "Core products concurrently"
+    clusters: 1
+    workers: 6
+    vcpu_per_worker: 4
+    ram_gib_per_worker: 16
+    storage_gib: 500
+    load_balancers: 2
+    run_hours_per_month: 730
+    ha_claim: false
+  - id: illustrative-ha
+    active_scope: "Candidate multi-AZ topology subject to HA qualification"
+    clusters: 1
+    workers: 10
+    vcpu_per_worker: 4
+    ram_gib_per_worker: 16
+    storage_gib: 1500
+    load_balancers: 3
+    run_hours_per_month: 730
+    ha_claim: false
