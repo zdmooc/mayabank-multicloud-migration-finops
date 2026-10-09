@@ -1,0 +1,16 @@
+risk_id,scope,dependency,risk,priority,proposed_owner,status
+R01,Instant Payments,PostgreSQL state,backup and correctness unknown after failover,HIGH,mayabank-instant-payments-resilience-platform,OPEN
+R02,Instant Payments,Kafka outbox and inbox,offset replay and delivery contract mismatch,HIGH,mayabank-instant-payments-resilience-platform,OPEN
+R03,Instant Payments,Keycloak OIDC JWKS,issuer and token validation across providers,HIGH,shared-platform-services-openshift,OPEN
+R04,Instant Payments,OpenShift Routes SCC ImageStream,not portable as-is to AKS EKS or GKE,HIGH,openshift-migration-framework,OPEN
+R05,Instant Payments,Observability Prometheus Loki OTel,local per-product stacks not centrally replaced,MEDIUM,shared-platform-services-openshift,OPEN
+R06,TradeOps,Ollama local model and AI Access,cloud model hosting GPU tokens unpriced,CRITICAL,TradeOps-GenAI-Integration,OPEN
+R07,TradeOps,Redpanda PostgreSQL Qdrant,stateful data and security/restore,HIGH,TradeOps-GenAI-Integration,OPEN
+R08,IBM MQ,Native HA licensing and PVC,license and supported topology excluded from base worker pricing,CRITICAL,mayabank-ibm-mq-native-ha-openshift-eda-platform,OPEN
+R09,Data Lakehouse,Kafka RF1 and Polaris in-memory,current lab is not resilient stateful deployment,HIGH,enterprise-data-lakehouse-kubernetes-openshift,OPEN
+R10,Data Lakehouse,Spark Trino Jupyter RustFS,requests do not establish peak IOPS/throughput,HIGH,enterprise-data-lakehouse-kubernetes-openshift,OPEN
+R11,Cloud,LB NAT IPv4 cross AZ and egress,understated all-in price,HIGH,mayabank-multicloud-migration-finops,OPEN
+R12,Cloud,Managed control plane and worker SKU limits,node allocatable system pool and upgrades not sized,HIGH,k8s-openshift-cluster-factory,OPEN
+R13,Cloud,Public repo and paid resources,secret leakage and uncontrolled spend,CRITICAL,mayabank-multicloud-migration-finops,OPEN
+R14,European Processing,Source tree 12 services,not 12 validated running service workloads,MEDIUM,mayabank-european-payment-processing-platform,OPEN
+R15,Maya Freelance,PostgreSQL and n8n,storage credentials and workflow restore unverified,MEDIUM,maya-freelance-mission-intelligence,OPEN
