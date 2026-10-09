@@ -14,6 +14,12 @@ Create one traceable decision and execution dossier for evaluating and progressi
 
 The scope covers inventory, dependencies, workload resource sizing, migration waves, target architecture, indicative TCO/FinOps, risks, validation gates and evidence. **This repository does not own a new Kubernetes platform, duplicated Terraform modules, business application code, or the runtime configuration of existing services.**
 
+## TradeOps GPU inference — local station vs Azure / AWS / GCP (2026-10-09)
+
+**Canonical cost and option dossier:** [AI inference TCO — existing ZBook/portable/workstation versus Azure, AWS and GCP](finops/AI_INFERENCE_TCO_LOCAL_STATIONS_AZURE_AWS_GCP_2026-10-09.md). This consolidates all options from the October 9 discussion: RTX 3090/4090/5090 and GB10 local stations, previous mobile-workstation alternatives, GCP L4, AWS L4 and Azure T4/A10, **4 hours/day weekday vs daily** compute scenarios, storage/network/energy/TCO caveats, and inspected public Terraform repositories.
+
+**Hybrid target assessment:** [TradeOps CRC + external GPU HLD](architecture/TRADEOPS_HYBRID_GPU_INFERENCE_HLD_2026-10-09.md). Keep the existing HP ZBook/OpenShift Local CRC for business workloads and the governed LiteLLM path; rent a GPU on demand or attach a dedicated Linux/NVIDIA workstation for inference. No GPU was purchased or deployed, cloud prices are **unverified planning inputs**, and Terraform remains owned by a qualified implementation repository per ADR-001.
+
 ## First assessment
 
 | Profile | Nodes | Total node vCPU | Total node RAM | Indicative persistent storage | Run schedule |
