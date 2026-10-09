@@ -26,6 +26,17 @@ These are **planning profiles**, not proven capacity requirements, reference arc
 
 For inputs, method and pricing caveats see [capacity-planning](capacity-planning/) and [finops](finops/). Previously communicated cost figures are retained as **historical planning placeholders**, not validated regional prices.
 
+## I1 partial static audit
+
+**Gate:** `I1_STATIC_EVIDENCE_PACK_READY` / **I1 NOT CLOSED**. The static comparison now includes:
+
+- [Manifest request ledger](capacity-planning/declared-workload-requests-2026-10-09.csv) for selected application components; requests are **not** actual utilization.
+- [Manifest analysis and cautions](capacity-planning/I1_MANIFEST_ANALYSIS_2026-10-09.md).
+- [Paris-region compute + AKS/EKS/GKE management price review](finops/PRICING_REVIEW_2026-10-09.md): secondary published VM prices + official published cluster rates; **not a full TCO or verified direct vendor quotation**.
+- [I1 evidence status](evidence/I1_RETRIEVAL_STATUS_2026-10-09.md).
+- [Local read-only collector](scripts/collect-local-inventory-readonly.sh), outputs ignored by Git pending review.
+- [Historical P95 measurement recipes](capacity-planning/PROMQL_P95_RECIPES.md), **not run yet**.
+
 ## Sources and operating model
 
 - [Repository scope](inventory/repository-scope.csv) distinguishes executable products, shared capabilities, specialists and references.
@@ -62,4 +73,4 @@ This repository **orchestrates** those owners. Cloud-specific IaC belongs in an 
 
 `I0 assessment -> I1 architecture & real pricing -> I2 IaC plan and readiness -> I3 AKS bounded pilot -> I4 EKS / GKE portability -> I5 workload waves -> I6 production-like HA qualification`.
 
-**Current gate:** `I0_INITIAL_REPOSITORY_BASELINE_DOCUMENTED`; actual price quotes, complete live per-pod utilization and deployment runtime evidence are still pending.
+**Current gate:** `I0_INITIAL_REPOSITORY_BASELINE_DOCUMENTED` plus `I1_STATIC_EVIDENCE_PACK_READY`; complete current per-pod usage, official direct regional SKU quotes, complete bill of materials and cloud runtime evidence are pending.

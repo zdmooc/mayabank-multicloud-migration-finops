@@ -5,12 +5,25 @@
 | Gate | Outcome and acceptance | Status |
 |---|---|---|
 | I0 | Dated inventory, owner map, initial sizing and cost hypotheses | DOCUMENTED_BASELINE; measurement gaps remain |
-| I1 | Regional service/SKU price checks, rendered requests/limits, measured utilization, dependency graph, target HLD | OPEN |
+| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **STATIC_EVIDENCE_PACK_READY / LIVE_METRICS_AND_FULL_BOM_OPEN** |
 | I2 | Terraform/Kustomize/Helm non-mutating render and review, least privilege, budgets, teardown runbook | OPEN |
 | I3 | Bounded Instant Payments AKS pilot, authenticated E2E, metering, rollback, destroy | BLOCKED: prior explicit approval |
 | I4 | Equivalent EKS and GKE pilots, comparable evidence and cleanup | BLOCKED: I3 + approval |
 | I5 | Selective TradeOps, Decision AI, Lakehouse, MQ and other app waves | PLANNED_ONLY |
 | I6 | Multi-AZ/stateful resilience, backups, recovery, performance, RPO/RTO and FinOps validation | PLANNED_ONLY |
+
+## I1 progress — 2026-10-09
+
+- [x] Re-read the canonical MayaBank repo classification and local runtime matrix.
+- [x] Extract selected CPU/RAM requests from GitHub workload manifests; record **19 source rows / partial** rather than all workload estimates.
+- [x] Obtain published official AKS/EKS/GKE standard cluster-management fees, and secondary comparator Paris-region instance rates.
+- [x] Produce **compute + cluster only** estimates with explicit omitted charges, public sources and verification date.
+- [x] Add sanitized **read-only** local CRC/Kind collection script and PromQL recipes.
+- [x] Add offline CI contract validation for manifests and FinOps subtotals.
+- [ ] Render active application overlays and deduplicate system/pod/stateful requests against real running namespaces.
+- [ ] Capture actual CRC/Kind per-container usage and P95, volume used bytes, network/throughput, load.
+- [ ] Collect official VM SKU prices, managed storage/database/network/network-egress/SLA/licensing BOM.
+- [ ] Final HLD, network/security and cutover risk acceptance; I1 **remains open**.
 
 ## I1 entry criteria
 
