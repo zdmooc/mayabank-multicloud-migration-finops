@@ -78,6 +78,18 @@ def validate():
         assert "SECONDARY_COMPUTE" in r["accuracy"]
         assert "network_egress" in r["excluded"]
 
+    full_bom = rows("finops/BOM_WORKSHEET_TEMPLATE.csv")
+    assert len(full_bom) == 126, "Expected 9 options x (2 priced + 12 unpriced)"
+    assert len({(r["scenario"], r["provider"]) for r in full_bom}) == 9
+    assert sum(r["status"] == "PRICED_PARTIAL" for r in full_bom) == 18
+    assert sum(r["rate_quality"] == "UNPRICED" for r in full_bom) == 108
+    for r in subtotals:
+        selected = [b for b in full_bom if b["scenario"] == r["scenario"] and b["provider"] == r["provider"]]
+        assert len(selected) == 14, (r["scenario"], r["provider"])
+        observed = sum((Decimal(b["monthly_cost_usd"]) for b in selected if b["status"] == "PRICED_PARTIAL"), Decimal("0"))
+        assert money(observed) == money(r["compute_cluster_usd_month"]), "BOM and compute subtotal disagree"
+        assert all(not b["unit_rate_usd"] and not b["monthly_cost_usd"] for b in selected if b["status"] != "PRICED_PARTIAL")
+
     components = rows("capacity-planning/declared-workload-requests-2026-10-09.csv")
     assert len(components) >= 18
     for r in components:
@@ -95,7 +107,7 @@ def validate():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "ASSESSMENT_ONLY" in readme and "I1_STATIC_EVIDENCE_PACK_READY" in readme
     assert (ROOT / ".gitignore").read_text(encoding="utf-8").find("evidence/local/") >= 0
-    print("ASSESSMENT_CONTRACTS=PASS; regional_price_rows=3; compute_subtotals=9; manifest_request_rows=19; I1_STATIC_ONLY")
+    print("ASSESSMENT_CONTRACTS=PASS; regional_price_rows=3; compute_subtotals=9; manifest_request_rows=19; bom_rows=126; I1_STATIC_ONLY")
 
 
 if __name__ == "__main__":

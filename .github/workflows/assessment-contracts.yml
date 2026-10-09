@@ -16,5 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Syntax check local read-only collector
+        run: bash -n scripts/collect-local-inventory-readonly.sh
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
