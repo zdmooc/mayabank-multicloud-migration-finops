@@ -1,0 +1,10 @@
+scenario,provider,planned_workers,planned_vcpu,planned_ram_gib,persistent_storage_gib,active_hours_month,illustrative_total_usd_month,price_status,source_note
+targeted-demo,Azure AKS,2,8,32,150,160,150,UNVERIFIED_ESTIMATE,Conversation planning model 2026-10-09
+targeted-demo,AWS EKS,2,8,32,150,160,182,UNVERIFIED_ESTIMATE,Conversation planning model 2026-10-09
+targeted-demo,GCP GKE,2,8,32,150,160,146,UNVERIFIED_ESTIMATE,Conversation planning model 2026-10-09
+portfolio-integration,Azure AKS,6,24,96,500,730,1955,UNVERIFIED_ESTIMATE,Conversation planning model 2026-10-09
+portfolio-integration,AWS EKS,6,24,96,500,730,2120,UNVERIFIED_ESTIMATE,Conversation planning model 2026-10-09
+portfolio-integration,GCP GKE,6,24,96,500,730,1901,UNVERIFIED_ESTIMATE,Conversation planning model 2026-10-09
+illustrative-ha,Azure AKS,10,40,160,1500,730,5113,UNVERIFIED_ESTIMATE,Conversation planning model 2026-10-09
+illustrative-ha,AWS EKS,10,40,160,1500,730,5386,UNVERIFIED_ESTIMATE,Conversation planning model 2026-10-09
+illustrative-ha,GCP GKE,10,40,160,1500,730,5021,UNVERIFIED_ESTIMATE,Conversation planning model 2026-10-09

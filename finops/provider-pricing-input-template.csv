@@ -1,0 +1,4 @@
+provider,region,service,sku,billing_unit,usd_per_unit,quantity,units_per_month,source_url,verified_on,status,notes
+Azure,francecentral,compute,,,,,,, ,UNVERIFIED,Fill from official Azure pricing
+AWS,eu-west-3,compute,,,,,,, ,UNVERIFIED,Fill from official AWS pricing
+GCP,europe-west9,compute,,,,,,, ,UNVERIFIED,Fill from official Google Cloud pricing
