@@ -34,6 +34,18 @@
 - [ ] Separate demo 160h, always-on 730h and dedicated stateful operation costs.
 - [ ] Review OpenShift-specific APIs before choosing AKS/EKS/GKE.
 
+## Separate workstream — TradeOps AI inference, local workstation vs GPU cloud (2026-10-09)
+
+This evaluation is **not** evidence of I3/I4 AKS/EKS/GKE migration and does not authorize cloud spend.
+
+- [x] Consolidate the complete 2026-10-09 discussion in [GPU local/cloud TCO](finops/AI_INFERENCE_TCO_LOCAL_STATIONS_AZURE_AWS_GCP_2026-10-09.md) (laptop alternative, local RTX/GB10 stations, Azure/AWS/GCP GPU SKUs, 4h/8h/24x7 hours, storage/energy, break-even limitations and public GitHub examples).
+- [x] Record the [hybrid CRC -> private GPU inference HLD](architecture/TRADEOPS_HYBRID_GPU_INFERENCE_HLD_2026-10-09.md) (D-090 governance preserved).
+- [ ] Verify official vendor GPU hourly prices, selected regions/zones/quotas and all-in monthly bill; obtain fresh local station quotations. Historical prices in the dossier are NOT verified offers.
+- [ ] Decide whether usage is 4h x 22 weekdays or 4h x 30 calendar days; define model/concurrency, tokens/s, data and SLO before choosing hardware.
+- [ ] Qualify an IaC **implementation owner** per ADR-001; prepare Terraform plan (VM, PD, VPC, IAM, Instance Schedule, budget), idempotent Ollama/vLLM bootstrap, protected endpoint and teardown, all **non-mutating** at first.
+- [ ] After explicit spend approval only: quota and billing controls, deploy an isolated GCP L4 4h/day pilot, verify start/stop, cost, p95/model performance, and requalify D-090 external-provider security/evidence.
+- [ ] Compare measured GPU rental OPEX against measured local power plus amortized station CAPEX; record decision in the master dossier.
+
 ## Human approval gate before any paid action
 
 Account/region authorization + cap and alarms + IAM scope + reviewed plan + security/privacy + teardown receipt + explicit go/no-go. No autonomous apply/destroy, no provider tokens in this public repository.
