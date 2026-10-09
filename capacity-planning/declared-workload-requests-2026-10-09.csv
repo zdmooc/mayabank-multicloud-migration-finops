@@ -1,0 +1,20 @@
+product,component,replicas_assumed,request_cpu_m_per_replica,request_memory_mi_per_replica,total_cpu_m,total_memory_mi,source_path,evidence_class,exclusions
+Instant Payments,payment-orchestrator,2,50,192,100,384,mayabank-instant-payments-resilience-platform/gitops/base/workloads.yaml,MANIFEST_BASE,External DB and Kafka excluded
+Instant Payments,consumer-psp,2,50,192,100,384,mayabank-instant-payments-resilience-platform/gitops/base/workloads.yaml,MANIFEST_BASE,External DB and Kafka excluded
+Instant Payments,acceptor-service,2,50,192,100,384,mayabank-instant-payments-resilience-platform/gitops/base/workloads.yaml,MANIFEST_BASE,External DB and Kafka excluded
+Instant Payments,reconciliation-service,2,50,192,100,384,mayabank-instant-payments-resilience-platform/gitops/base/workloads.yaml,MANIFEST_BASE,External DB and Kafka excluded
+Instant Payments,dependency-simulator,2,50,192,100,384,mayabank-instant-payments-resilience-platform/gitops/base/workloads.yaml,MANIFEST_BASE,Demo only; production may exclude
+TradeOps,active Helm CRC profile summarized,1,645,1880,645,1880,TradeOps-GenAI-Integration/infra/helm/tradeops/values.yaml + values-crc.yaml,DECLARED_TEMPLATE_AGGREGATE,17 enabled app/web/platform components with assumed 1 replica; excludes external LiteLLM/Ollama and nonHelm pods
+IBM MQ,mq single-instance,1,500,1024,500,1024,mayabank-ibm-mq-native-ha-openshift-eda-platform/deploy/local-crc/mq.yaml,MANIFEST_CRC,MQ Native HA license and extra replicas excluded
+Decision AI,decision-api,1,100,128,100,128,mayabank-ibm-odm-ai-decision-architecture/deploy/openshift/10-workload.yaml,MANIFEST_BASE,Licensed ODM software not deployed
+Maya Freelance,maya-dashboard,1,50,96,50,96,maya-freelance-mission-intelligence/deploy/k8s/base/dashboard/deployment.yaml,MANIFEST_BASE,Worker secrets excluded
+Maya Freelance,n8n,1,100,384,100,384,maya-freelance-mission-intelligence/deploy/k8s/base/n8n/deployment.yaml,MANIFEST_BASE,Job peaks excluded
+Maya Freelance,postgres-lab,1,100,256,100,256,maya-freelance-mission-intelligence/deploy/k8s/components/postgres-lab/deployment.yaml,MANIFEST_BASE,PostgreSQL durability and backup excluded
+European Processing,payment-processing-api,1,100,256,100,256,mayabank-european-payment-processing-platform/platform/openshift/base/deployment.yaml,MANIFEST_BASE,12 service source directories are not 12 deployed services
+Data Lakehouse,Kafka dual-role broker,1,250,768,250,768,enterprise-data-lakehouse-kubernetes-openshift/data-platform/kafka/profiles/kind/kafka.yaml,KIND_MANIFEST,RF1 only
+Data Lakehouse,Kafka Topic/User/Exporter operators aggregate,1,150,576,150,576,enterprise-data-lakehouse-kubernetes-openshift/data-platform/kafka/profiles/kind/kafka.yaml,KIND_MANIFEST,External Strimzi operator excluded
+Data Lakehouse,RustFS object storage,1,100,256,100,256,enterprise-data-lakehouse-kubernetes-openshift/data-platform/object-storage/profiles/kind/rustfs.yaml,KIND_MANIFEST,5Gi PVC not included in CPU/RAM
+Data Lakehouse,Polaris,1,100,512,100,512,enterprise-data-lakehouse-kubernetes-openshift/data-platform/catalog/polaris/values-kind.yaml,KIND_HELM,In-memory not durable
+Data Lakehouse,Trino coordinator+worker combined,2,200,768,400,1536,enterprise-data-lakehouse-kubernetes-openshift/data-platform/trino/values-kind.yaml,KIND_HELM,1 coordinator and 1 worker
+Data Lakehouse,Monitoring selected chart components,1,430,864,430,864,enterprise-data-lakehouse-kubernetes-openshift/platform/kind/monitoring-values.yaml,KIND_HELM_AGGREGATE,Grafana sidecar plus prometheus operator reloader kube state and Prometheus; check rendered Helm
+Shared Platform,OTel Collector,1,50,128,50,128,shared-platform-services-openshift/platform/observability/otel/deployment.yaml,MANIFEST_BASE,Other shared IAM GitOps platform components excluded
