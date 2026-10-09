@@ -1,0 +1,18 @@
+scenario,provider,service_category,pricing_driver,planned_quantity,unit_rate_usd,monthly_cost_usd,rate_source,status,notes
+targeted-demo,Azure AKS Standard,worker_compute,4vcpu_worker_hours,320,,,https://calculator.holori.com/azure?region=francecentral,SECONDARY_PRICE,2 workers x 160h
+targeted-demo,Azure AKS Standard,cluster_management,cluster_hours,160,0.10,16.00,https://learn.microsoft.com/en-us/azure/architecture/aws-professional/eks-to-aks/cost-management,OFFICIAL_PUBLISHED_RATE,Cluster must be deleted off-hours for 160h
+targeted-demo,Azure AKS Standard,persistent_disks,GB_month,150,,,,PRICE_REQUIRED,Volume billing may persist after cluster removal
+targeted-demo,Azure AKS Standard,network_LB,LB_hours,,,,,PRICE_REQUIRED,Ingress and outbound design pending
+targeted-demo,Azure AKS Standard,NAT_egress,GB_and_gateway_hours,,,,,PRICE_REQUIRED,Do not assume zero traffic charge
+targeted-demo,Azure AKS Standard,database_PostgreSQL,instance_hours_and_storage,,,,,DECISION_REQUIRED,Managed vs owned database
+targeted-demo,Azure AKS Standard,eventing_Kafka,broker_hours_and_transfer,,,,,DECISION_REQUIRED,Product-owned semantics and throughput
+targeted-demo,Azure AKS Standard,observability,ingestion_GB_and_retention,,,,,PRICE_REQUIRED,Metrics traces logs retention
+targeted-demo,Azure AKS Standard,backup_DR,GB_month_and_operations,,,,,DESIGN_REQUIRED,Snapshot and recovery are not optional production controls
+targeted-demo,Azure AKS Standard,identity_registry_secrets,operations_and_storage,,,,,PRICE_REQUIRED,Secrets Key Vault ACR image traffic
+targeted-demo,Azure AKS Standard,LLM_AI,GPU_hours_or_tokens,,,,,WORKLOAD_DEPENDENT,TradeOps separate unless included
+targeted-demo,Azure AKS Standard,IBM_MQ_OpenShift_license,cores_and_software_terms,,,,,WORKLOAD_DEPENDENT,Specialist platform not in baseline
+portfolio-integration,Azure AKS Standard,worker_compute,4vcpu_worker_hours,4380,,,https://calculator.holori.com/azure?region=francecentral,SECONDARY_PRICE,6 workers x 730h
+portfolio-integration,Azure AKS Standard,cluster_management,cluster_hours,730,0.10,73.00,https://learn.microsoft.com/en-us/azure/architecture/aws-professional/eks-to-aks/cost-management,OFFICIAL_PUBLISHED_RATE,Standard AKS
+portfolio-integration,Azure AKS Standard,persistent_disks,GB_month,500,,,,PRICE_REQUIRED,Replication and snapshot priced separately
+illustrative-ha,Azure AKS Standard,worker_compute,4vcpu_worker_hours,7300,,,https://calculator.holori.com/azure?region=francecentral,SECONDARY_PRICE,10 workers x 730h
+illustrative-ha,Azure AKS Standard,cluster_management,cluster_hours,730,0.10,73.00,https://learn.microsoft.com/en-us/azure/architecture/aws-professional/eks-to-aks/cost-management,OFFICIAL_PUBLISHED_RATE,Not HA proven
