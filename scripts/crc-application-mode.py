@@ -179,14 +179,16 @@ def park() -> None:
     if STATE.exists() and load_state().get("status") != "RESUMED":
         raise RuntimeError(f"EXISTING_ACTIVE_SNAPSHOT={STATE} — use resume, no overwrite")
     selected, applications, blocked = inspect()
-    if blocked:
-        raise RuntimeError("PARK_BLOCKED=" + ",".join(blocked))
+    critical = [b for b in blocked if b.startswith(("ARGO_", "NO_AUTOSYNC_"))]
+    if critical:
+        raise RuntimeError("PARK_BLOCKED=" + ",".join(critical))
     if len(selected) < 2:
         raise RuntimeError("LESS_THAN_TWO_ELIGIBLE_RUNNING_DEPLOYMENTS")
     snapshot = {
         "status": "PARKING", "namespace": NS,
         "captured_at_utc": datetime.now(timezone.utc).isoformat(),
         "deployments": selected, "applications": applications,
+        "skipped": blocked,
     }
     write_state(snapshot)
     try:
@@ -197,6 +199,7 @@ def park() -> None:
         snapshot["status"] = "PARKED"
         write_state(snapshot)
         print(f"PARKED_DEPLOYMENTS={len(selected)}")
+        print("SKIPPED_UNSAFE_OR_ABSENT=" + (",".join(blocked) if blocked else "NONE"))
         print("PARK_RESULT=PASS")
         print(f"SNAPSHOT={STATE}")
         print("DEPENDENCY_POSTGRES_KAFKA_MQ_WAS_NOT_SCALED=true")
@@ -251,7 +254,10 @@ def plan() -> None:
     print(f"TARGET_NAMESPACE={NS}")
     print("APPS_TO_PARK=" + ",".join(f"{d['name']}:{d['replicas']}->0" for d in selected))
     print("GITOPS_APPLICATIONS_TO_PAUSE=" + ",".join(a["name"] for a in apps))
-    print("BLOCKERS=" + (",".join(blocked) if blocked else "NONE"))
+    critical = [b for b in blocked if b.startswith(("ARGO_", "NO_AUTOSYNC_"))]
+    skipped = [b for b in blocked if b not in critical]
+    print("SKIPPED_UNSAFE_OR_ABSENT=" + (",".join(skipped) if skipped else "NONE"))
+    print("BLOCKERS=" + (",".join(critical) if critical else "NONE"))
     print(f"EXISTING_SNAPSHOT={STATE if STATE.exists() else 'NONE'}")
     print("DATA_STORES_AND_PLATFORM_NOT_SCALED=true")
     print("PROJECT_PARK_AUTHORIZATION=NOT_GIVEN_BY_PLAN")
