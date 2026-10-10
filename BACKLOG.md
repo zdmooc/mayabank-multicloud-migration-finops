@@ -5,7 +5,7 @@
 | Gate | Outcome and acceptance | Status |
 |---|---|---|
 | I0 | Dated inventory, owner map, initial sizing and cost hypotheses | DOCUMENTED_BASELINE; measurement gaps remain |
-| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **CRC_REQUEST_PRESSURE_DOCUMENTED / P95_AND_FULL_BOM_OPEN** |
+| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **CRC_NAMESPACE_SEGMENTATION_DOCUMENTED / P95_AND_FULL_BOM_OPEN** |
 | I2 | Terraform/Kustomize/Helm non-mutating render and review, least privilege, budgets, teardown runbook | OPEN |
 | I3 | Bounded Instant Payments AKS pilot, authenticated E2E, metering, rollback, destroy | BLOCKED: prior explicit approval |
 | I4 | Equivalent EKS and GKE pilots, comparable evidence and cleanup | BLOCKED: I3 + approval |
@@ -47,6 +47,18 @@ See [live sanitized measurements](evidence/I1_CRC_LIVE_METRICS_2026-10-10.md). L
 - [ ] Collect P95, storage used bytes/IOPS, exact active workload overlay and official complete BOM before **I1_CLOSED**.
 
 [Detailed I1 capacity observation](evidence/I1_CRC_REQUEST_CAPACITY_2026-10-10.md). 2×4-vCPU demo workers remain a selective-workload hypothesis, **not** proven adequate for all simultaneous CRC services. Kind Data Lakehouse remains separate.
+
+## I1 namespace segmentation — 2026-10-10
+
+- [x] Updated CRC inventory: 149 Running pods; zero Pending; 92 Succeeded and 29 Failed.
+- [x] OpenShift-prefix namespaces: 108 Running pods, 4603m CPU requests and 14305 Mi memory requests.
+- [x] Other namespaces: 41 Running pods, 2715m CPU requests and 8962 Mi memory requests.
+- [x] All Running containers: 7318m CPU / 23267 Mi RAM requested; node allocatable 7800m CPU / about 23.02 GiB RAM.
+- [x] PVC requested: 52 GiB across 15 Bound claims. Used bytes not measured.
+- [x] Optional read-only grouped workload analysis added to local summarizer.
+- [ ] Finish cloud target workload classification, P95 usage, actual disk and IOPS, node headroom, and complete regional cost BOM.
+
+See evidence/I1_CRC_NAMESPACE_SEGMENTATION_2026-10-10.md. Status: I1 OPEN.
 
 ## I1 entry criteria
 
