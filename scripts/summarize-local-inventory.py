@@ -30,7 +30,11 @@ def main():
     p.add_argument("directory", type=Path, help="Local evidence/local/private-* path")
     p.add_argument("--workload-groups", action="store_true",
                    help="Show only safe aggregate resource sums for known synthetic MayaBank workstream categories; no namespace names")
+    p.add_argument("--observed-top", action="store_true",
+                   help="Read local oc adm top pods output and print only grouped usage; single timepoint, not P95")
     a = p.parse_args()
+    if a.observed_top and not a.workload_groups:
+        p.error("--observed-top requires --workload-groups")
     try:
         pods = records(a.directory, "pod-resources.csv")
         pvcs = records(a.directory, "pvc-requests.csv")
@@ -115,6 +119,47 @@ def main():
                 print(f"group_{group}_pods={pods_in_group}")
                 print(f"group_{group}_requests_cpu_m={requested_cpu:.2f}")
                 print(f"group_{group}_requests_memory_mi={requested_mem:.2f}")
+            if a.observed_top:
+                top_path = a.directory / "top-pods-now.txt"
+                # Only aggregate after verifying that a table header and at least
+                # one valid metrics row exist. Never print raw pod or host data.
+                lines = top_path.read_text(encoding="utf-8-sig").splitlines()
+                header = next((line.split() for line in lines if line.strip().startswith("NAMESPACE ")), None)
+                if not header or "CPU(cores)" not in header or "MEMORY(bytes)" not in header:
+                    raise ValueError("Metrics file has no supported top pods header")
+                usage_groups = {}
+                parsed = 0
+                for line in lines:
+                    cols = line.split()
+                    if not cols or cols[0] == "NAMESPACE" or len(cols) < 4:
+                        continue
+                    # Supports both pod level (4 fields) and --containers (5 fields).
+                    # Full row lengths guard against accidental parsing of diagnostic text.
+                    if len(cols) not in (4, 5):
+                        continue
+                    try:
+                        used_cpu = cpu_m(cols[-2])
+                        used_mem = memory_mi(cols[-1])
+                    except ValueError:
+                        continue
+                    namespace = cols[0]
+                    group = ("openshift_prefix_all" if namespace.startswith("openshift-")
+                             else known.get(namespace, "unclassified_other"))
+                    usage_groups.setdefault(group, [0, 0.0, 0.0])
+                    usage_groups[group][0] += 1
+                    usage_groups[group][1] += used_cpu
+                    usage_groups[group][2] += used_mem
+                    parsed += 1
+                if parsed == 0:
+                    raise ValueError("No valid metric rows in top pods data")
+                print(f"TOP_SAMPLE_ROWS={parsed}")
+                print("TOP_SCOPE=single_point_in_time_NOT_P95_or_load_test")
+                print("TOP_GROUPS=namespace_classification_not_verified_workload_ownership")
+                for group, (count, cpu_used, mem_used) in sorted(usage_groups.items()):
+                    print(f"top_group_{group}_rows={count}")
+                    print(f"top_group_{group}_used_cpu_m={cpu_used:.2f}")
+                    print(f"top_group_{group}_used_memory_mi={mem_used:.2f}")
+                print("TOP_CAVEAT=metrics_rows_may_include_multiple_containers_per_pod")
             print("GROUP_CAVEAT=not_a_cloud_migration_target_or_live_utilization")
 
         print("SCOPE=declared_requests_only_NOT_measured_CPU_RAM_or_P95")
