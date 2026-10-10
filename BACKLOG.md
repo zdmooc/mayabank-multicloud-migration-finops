@@ -5,7 +5,7 @@
 | Gate | Outcome and acceptance | Status |
 |---|---|---|
 | I0 | Dated inventory, owner map, initial sizing and cost hypotheses | DOCUMENTED_BASELINE; measurement gaps remain |
-| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **CRC_WORKLOAD_GROUPS_DOCUMENTED / P95_AND_FULL_BOM_OPEN** |
+| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **CRC_GROUPED_SINGLE_SNAPSHOT_OBSERVED / P95_AND_FULL_BOM_OPEN** |
 | I2 | Terraform/Kustomize/Helm non-mutating render and review, least privilege, budgets, teardown runbook | OPEN |
 | I3 | Bounded Instant Payments AKS pilot, authenticated E2E, metering, rollback, destroy | BLOCKED: prior explicit approval |
 | I4 | Equivalent EKS and GKE pilots, comparable evidence and cleanup | BLOCKED: I3 + approval |
@@ -69,6 +69,16 @@ See evidence/I1_CRC_NAMESPACE_SEGMENTATION_2026-10-10.md. Status: I1 OPEN.
 - [x] [Scoped migration comparison](evidence/I1_CRC_WORKLOAD_GROUPS_2026-10-10.md): Payments 19 pods / 505m / 3200Mi; TradeOps 4 / 225m / 768Mi (not full product); MQ 5 / 850m / 1792Mi; identity 3 / 600m / 1730Mi.
 - [x] Added optional local `--observed-top` to compare these same namespace categories to a **single CPU/RAM usage snapshot**, not a P95.
 - [ ] Run the new local snapshot comparison, select the exact Payments pilot slice, and separate business vs stateful/observability/identity components. Then collect P95, Kind inventory and provider full BOM. **I1 not CLOSED**.
+
+## I1 CRC observed metrics versus scheduler requests — 2026-10-10
+
+- [x] Snapshot by namespace group from `--observed-top` delivered by operator: **216 top container rows** vs **217 Running regular-container declarations**; exact identity coverage not established from summary only.
+- [x] Top metric sums **1194m CPU / 19064 Mi memory** vs declared requests **7318m / 23267 Mi**, descriptive top/request ratios **16.3% CPU / 81.9% memory** (not validated same complete set or P95).
+- [x] Payments **505m requests / 128m observed CPU** and **3200 Mi requested / 3079 Mi observed memory**; namespace includes Kafka/PostgreSQL and monitoring, not only APIs.
+- [x] OpenShift-prefix **4603m/974m CPU** and **14305 Mi/13965 Mi RAM**, memory observed/request **97.6%**; cannot assume OpenShift overhead transfers 1:1 to managed Kubernetes.
+- [x] Added [grouped usage evidence](evidence/I1_CRC_REQUESTS_VS_OBSERVED_2026-10-10.md) and offline [per-container identity coverage checker](scripts/check-local-top-coverage.py) with synthetic tests; no local raw CSV published.
+- [ ] Operator executes the checker on the 08:10 capture and sends only aggregated results, establishing matched/missing top samples.
+- [ ] Collect historical workload-aware P95/P99, OOM/restart signals, data IO/used volumes, Kind Lakehouse baseline and full provider regional BOM. **I1 stays OPEN.**
 
 ## I1 entry criteria
 
