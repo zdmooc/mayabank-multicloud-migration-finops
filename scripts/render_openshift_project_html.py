@@ -167,8 +167,8 @@ def cmd_list(rep):
     ]
     if ns=="wero-poc":
         commands.extend([
-          ("Wero : statut et problèmes Argo CD","oc -n openshift-gitops get application wero-poc-crc -o jsonpath='{.status.sync.status}{\\\"\\\\n\\\"}{range .status.conditions[*]}{.type}{\\\": \\\"}{.message}{\\\"\\\\n\\\"}{end}'"),
-          ("Wero : Source et branche GitOps","oc -n openshift-gitops get application wero-poc-crc -o jsonpath='{.spec.source.repoURL}{\\\"\\\\n\\\"}{.spec.source.targetRevision}{\\\"\\\\n\\\"}'"),
+          ("Wero : statut et problèmes Argo CD", "oc -n openshift-gitops describe application wero-poc-crc"),
+          ("Wero : Source et branche GitOps", "oc -n openshift-gitops get application wero-poc-crc -o custom-columns=NAME:.metadata.name,REPO:.spec.source.repoURL,REVISION:.spec.source.targetRevision"),
           ("Wero : PVC PostgreSQL et PV lié","oc -n wero-poc get pvc postgresql-data -o wide"),
           ("Wero : anciennes images et BuildConfigs","oc -n wero-poc get imagestreams,buildconfigs"),
           ("Wero : vérification zéro réplica","oc -n wero-poc get deploy -o custom-columns=NAME:.metadata.name,DESIRED:.spec.replicas,READY:.status.readyReplicas")
