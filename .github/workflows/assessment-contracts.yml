@@ -22,5 +22,7 @@ jobs:
         run: bash tests/test_local_collector_top_dispatch.sh
       - name: Check safe local summarizer syntax
         run: python -m py_compile scripts/summarize-local-inventory.py
+      - name: Run synthetic request capacity summary tests
+        run: python tests/test_local_inventory_summary.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
