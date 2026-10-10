@@ -30,5 +30,9 @@ jobs:
         run: python -m py_compile scripts/audit-crc-postgresql-readonly.py
       - name: Offline synthetic PostgreSQL topology and redaction tests
         run: python tests/test_postgresql_readonly_audit.py
+      - name: Syntax check generic OpenShift CRC project auditor
+        run: python -m py_compile scripts/audit-openshift-project-readonly.py
+      - name: Verify generic project audit with synthetic Kubernetes metadata
+        run: python tests/test_openshift_project_audit.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
