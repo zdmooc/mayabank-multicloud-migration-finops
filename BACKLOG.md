@@ -5,7 +5,7 @@
 | Gate | Outcome and acceptance | Status |
 |---|---|---|
 | I0 | Dated inventory, owner map, initial sizing and cost hypotheses | DOCUMENTED_BASELINE; measurement gaps remain |
-| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **STATIC_EVIDENCE_PACK_READY / LIVE_METRICS_AND_FULL_BOM_OPEN** |
+| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **STATIC_EVIDENCE_PACK_READY / OCT10_LIVE_SNAPSHOT_OBSERVED / P95_AND_FULL_BOM_OPEN** |
 | I2 | Terraform/Kustomize/Helm non-mutating render and review, least privilege, budgets, teardown runbook | OPEN |
 | I3 | Bounded Instant Payments AKS pilot, authenticated E2E, metering, rollback, destroy | BLOCKED: prior explicit approval |
 | I4 | Equivalent EKS and GKE pilots, comparable evidence and cleanup | BLOCKED: I3 + approval |
@@ -24,6 +24,16 @@
 - [ ] Capture actual CRC/Kind per-container usage and P95, volume used bytes, network/throughput, load.
 - [ ] Collect official VM SKU prices, managed storage/database/network/network-egress/SLA/licensing BOM.
 - [ ] Final HLD, network/security and cutover risk acceptance; I1 **remains open**.
+
+## I1 CRC live snapshot — 2026-10-10
+
+- [x] CRC monitoring operator and metrics APIService confirmed available; `oc adm top nodes/pods` returned one live sample.
+- [x] Corrected collector: `oc adm top` for OpenShift versus `kubectl top` for Kubernetes; added CI mock regression and fallback.
+- [x] Recorded safe rollup: node 1765m CPU (22%), 18367Mi RAM (77%); 147 visible pod rows (108 `openshift-*`, 39 elsewhere).
+- [ ] Analyze the user's local CSV request/limit and node allocatable files with the safe offline summarizer. Files are not in GitHub.
+- [ ] Capture 7–30-day P95, actual PVC usage/IOPS/network and full provider-specific service BOM before closing I1.
+
+See [live sanitized measurements](evidence/I1_CRC_LIVE_METRICS_2026-10-10.md). Local CRC OpenShift overhead is not transferred 1:1 to the managed-cloud worker pool.
 
 ## I1 entry criteria
 
