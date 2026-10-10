@@ -34,5 +34,9 @@ jobs:
         run: python -m py_compile scripts/audit-openshift-project-readonly.py
       - name: Verify generic project audit with synthetic Kubernetes metadata
         run: python tests/test_openshift_project_audit.py
+      - name: Check standalone CRC HTML renderer syntax
+        run: python -m py_compile scripts/render_openshift_project_html.py
+      - name: Run synthetic HTML Wero architecture and sanitization tests
+        run: python tests/test_openshift_html_report.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
