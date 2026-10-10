@@ -5,7 +5,7 @@
 | Gate | Outcome and acceptance | Status |
 |---|---|---|
 | I0 | Dated inventory, owner map, initial sizing and cost hypotheses | DOCUMENTED_BASELINE; measurement gaps remain |
-| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **CRC_GROUPED_SINGLE_SNAPSHOT_OBSERVED / P95_AND_FULL_BOM_OPEN** |
+| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **CRC_CONTAINER_COVERAGE_99_54PCT / P95_AND_FULL_BOM_OPEN** |
 | I2 | Terraform/Kustomize/Helm non-mutating render and review, least privilege, budgets, teardown runbook | OPEN |
 | I3 | Bounded Instant Payments AKS pilot, authenticated E2E, metering, rollback, destroy | BLOCKED: prior explicit approval |
 | I4 | Equivalent EKS and GKE pilots, comparable evidence and cleanup | BLOCKED: I3 + approval |
@@ -79,6 +79,17 @@ See evidence/I1_CRC_NAMESPACE_SEGMENTATION_2026-10-10.md. Status: I1 OPEN.
 - [x] Added [grouped usage evidence](evidence/I1_CRC_REQUESTS_VS_OBSERVED_2026-10-10.md) and offline [per-container identity coverage checker](scripts/check-local-top-coverage.py) with synthetic tests; no local raw CSV published.
 - [ ] Operator executes the checker on the 08:10 capture and sends only aggregated results, establishing matched/missing top samples.
 - [ ] Collect historical workload-aware P95/P99, OOM/restart signals, data IO/used volumes, Kind Lakehouse baseline and full provider regional BOM. **I1 stays OPEN.**
+
+## I1 exact container coverage — 2026-10-10
+
+- [x] User executed privacy-preserving local identity matching between Running regular-container request CSV and `oc adm top --containers` sample.
+- [x] **217 Running container rows**, **216 metric rows**, **216 exact matches**, **one missing measurement** and **zero extraneous metrics**. Running inventory coverage **99.54%**; all observed metrics attributed to exact containers.
+- [x] Missing sample is in `unclassified_other`: **50m CPU request / 128 Mi memory request**. Actual usage and root cause are not evidenced and **must not** be set to zero.
+- [x] For exactly matched 216 containers, requests **7268m CPU / 23139 Mi RAM** and measured **1194m CPU / 19064 Mi RAM**; observed/request ratios **16.43% CPU / 82.39% RAM**, one point in time, **not P95 or node utilization**.
+- [x] Improved offline matcher to print matched-only totals and coverage percentages; synthetic privacy and arithmetic checks added to GitHub CI.
+- [ ] Collect historical P95/P99 by comparable business/idle load windows, missing-container investigation, restarts/OOM, storage used bytes and IOPS, exact selected Payments API/data contracts, Kind lakehouse, and region/SKU complete provider cost model.
+
+[Container metric coverage evidence](evidence/I1_CRC_CONTAINER_METRIC_COVERAGE_2026-10-10.md). **I1 remains OPEN**; cloud sizing and Cloud provisioning are not approved.
 
 ## I1 entry criteria
 
