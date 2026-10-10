@@ -28,6 +28,24 @@ class ProjectAuditContracts(unittest.TestCase):
         self.assertIsNone(audit.safe_host_env({"name": "DATABASE_PASSWORD", "value": "SECRET_VALUE"}))
         self.assertIsNone(audit.safe_host_env({"name": "POSTGRES_HOST", "value": "user:pass@db"}))
 
+    def test_historical_build_pods_not_running_replicas(self):
+        pods = [
+          obj("api-gateway-1-build","Pod",status={"phase":"Failed"}),
+          obj("api-gateway-2-build","Pod",status={"phase":"Succeeded"}),
+          obj("api-gateway-3-build","Pod",status={"phase":"Succeeded"}),
+          obj("payment-service-1-build","Pod",status={"phase":"Failed"}),
+          obj("payment-service-17-build","Pod",status={"phase":"Succeeded"}),
+          obj("api-gateway-9fd78-xyz","Pod",status={"phase":"Running"}),
+        ]
+        history=audit.summarize_pod_history(pods)
+        self.assertEqual(history["historical_build_pods"],5)
+        self.assertEqual(history["build_completed"],3)
+        self.assertEqual(history["build_failed"],2)
+        self.assertEqual(history["non_build_running_pods"],1)
+        groups={g["buildconfig"]:g for g in history["build_groups"]}
+        self.assertEqual(groups["api-gateway"]["visible_build_numbers"],[1,2,3])
+        self.assertEqual(groups["payment-service"]["visible_build_numbers"],[1,17])
+
     def test_tradeops_emptydir_and_no_secret_leak(self):
         server = obj("postgres", "StatefulSet", spec={
             "replicas": 1,
