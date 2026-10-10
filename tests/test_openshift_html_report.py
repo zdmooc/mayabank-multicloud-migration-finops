@@ -22,6 +22,10 @@ def sample(ns="wero-poc"):
         {"kind":"Deployment","name":"postgresql","desired":0,"ready":0,"images":["postgres:16"],
          "pvc_claims":["postgresql-data"],"emptydir_mounts":[],"cpu_req_m":0,"ram_req_mi":0,
          "top_cpu_m_if_covered":0,"top_ram_mi_if_covered":0}],
+      "pod_history":{"historical_build_pods":27,"build_completed":24,
+                     "build_failed":3,"build_other":0,"non_build_running_pods":0,
+                     "build_groups":[{"buildconfig":"api-gateway","visible":5,"completed":4,"failed":1,
+                                      "visible_build_numbers":[1,2,3,4,5]}]},
       "pvc":[{"name":"postgresql-data","phase":"Bound","requested":"1Gi",
               "reclaim":"Retain","actual_used_bytes":"NOT_MEASURED"}],
       "services":[{"name":"payment-service","type":"ClusterIP","workload_candidates":["payment-service"]},
@@ -52,6 +56,12 @@ class HtmlReportTest(unittest.TestCase):
         self.assertIn("NO_DELETE",output)
         self.assertIn("oc -n wero-poc get deployments",output)
         self.assertIn("64 Mio",output)
+        self.assertIn("Historique de construction OpenShift",output)
+        self.assertIn("Builds visibles",output)
+        self.assertIn("Pods builds",output)
+        self.assertIn("27",output)
+        self.assertIn("24",output)
+        self.assertIn("api-gateway",output)
         self.assertIn("api-gateway",output)
         self.assertNotIn("<script>alert('bad')</script>",output)
         self.assertIn("&lt;script&gt;",output)
