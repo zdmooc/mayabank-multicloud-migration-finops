@@ -51,3 +51,32 @@ Le runbook `zdmooc/cadrage_202682030/architecture/LOCAL_DUAL_PLATFORM_CRC_KIND_S
 Le profil Kind Wero a passé les tests de syntaxe, mocks et rendu Kustomize le 10 octobre, mais aucune image OCI n'a été reconstruite et aucun E2E Kind effectué. Docker Desktop / Podman étaient arrêtés dans WSL2. La bascule nécessite l'arrêt de CRC, qui a d'autres projets actifs avec des données possiblement éphémères. Ne pas arrêter CRC tant que les données requises et l'état de reprise de TradeOps et des autres services ne sont pas clarifiés.
 
 **Décision maintenue : INVENTORY_FIRST / NO_DELETE / DO_NOT_STOP_CRC_AUTOMATICALLY.**
+
+## Résultat réel opérateur — 2026-10-10 16h
+
+Le test local `python tests/test_crc_pod_pressure_readonly.py` a réussi (`Ran 2 tests ... OK`). Le script `audit-crc-pod-pressure-readonly.py` a ensuite produit le premier inventaire réel du CRC sur le HP :
+
+```text
+SOURCE_POD_OBJECTS_ALL=269
+SOURCE_POD_OBJECTS_NONTERMINAL=149
+POD_PHASE_COUNTS={"Failed": 29, "Running": 149, "Succeeded": 91}
+NODE=crc ASSIGNED_ACTIVE_OR_PENDING=149 ALLOCATABLE_PODS=250 REMAINING=101
+oc adm top nodes: crc 1901m CPU (24%), 19835Mi mémoire (84%)
+```
+
+**La limite de slots du nœud n'est PAS dépassée : 149/250, soit 59,6 %.** Les 120 pods `Succeeded/Failed` sont des objets terminés, pas 120 pods en consommation active de CPU/RAM ; il n'y avait aucun Pending sur cet instantané. Le dashboard antérieur indiquait `239/269`, mais son périmètre/horodatage n'a pas été concilié avec ce relevé direct : **ne pas présenter le dénominateur 269 comme le maximum allocatable de 250**, et ne pas les comparer comme s'il s'agissait de la même métrique.
+
+Namespaces actifs les plus nombreux : `instant-payments-local` 19 (45 objets historiques terminés), `openshift-pipelines` 18, `openshift-monitoring` 12, `openshift-gitops` 8, `mayabank-mq-local` 5, `tradeops` 4, `maya-freelance` 3. `wero-poc` **0 actif / 27 historiques**, `mayabank-mq-build` **0 actif / 8 historiques**. L'outil identifie **92 builds historiques terminés** au total (instant-payments 36, Wero 27, TradeOps 10, mayabank-mq-build 4 et autres) parmi les 120 objets terminés. La suppression de ces historiques pourrait diminuer le volume d'objets de l'API Kubernetes, mais ne libère pas des slots de pods actifs et aucun gain RAM n'est établi.
+
+TradeOps : pods PostgreSQL `postgres-0` sur `/var/lib/postgresql/data` en `emptyDir`, Redpanda `redpanda-0` sur `/var/lib/redpanda/data` et `/etc/redpanda`, Prometheus sur `/prometheus` sont **Running**. Le rapport donne 4 montages observés, non 4 sauvegardes ni 4 bases. Le risque P0 de redémarrage/recréation de ces pods reste ouvert.
+
+**Prochain gate = mesurer la RAM par pod avant d'éditer un plan de réduction :**
+
+```bash
+oc adm top pods -A --sort-by=memory | head -n 35
+oc adm top pods -A --sort-by=cpu | head -n 25
+oc get pods -A --field-selector=status.phase=Pending -o wide
+oc get events -A --field-selector type=Warning --sort-by=.metadata.creationTimestamp | tail -n 35
+```
+
+Les relevés `oc adm top` sont des instantanés et ne permettent pas seuls d'attribuer la cause des gels Windows. Chercher aussi côté hôte Windows l'utilisation RAM et les erreurs/événements WSL/Hyper-V. **Aucun nettoyage n'a été effectué. Décision : RAM_DIAGNOSTIC_FIRST / INVENTORY_ONLY / NO_DELETE.**
