@@ -320,7 +320,9 @@ def analyze_namespace(ns, repo_path=None, include_gitops=False):
                    all(src["spec"]["template"]["metadata"]["labels"].get(k) == v for k, v in sel.items())
                    for src in (lists["deployments"] + lists["statefulsets"] + lists["daemonsets"]))]
         services.append({"name": m(s, "name"), "type": s.get("spec", {}).get("type", "ClusterIP"),
-                         "workload_candidates": sorted(set(targets)), "selector_present": bool(sel)})
+                         "workload_candidates": sorted(set(targets)), "selector_present": bool(sel),
+                         "ports": sorted({str(p.get("port")) + "/" + str(p.get("protocol", "TCP"))
+                                          for p in s.get("spec", {}).get("ports", []) if p.get("port") is not None})})
     # Route hostname is deliberately NOT exported. Only its Service target and
     # TLS termination mode are needed for an offline topology drawing.
     routes = []
@@ -330,6 +332,18 @@ def analyze_namespace(ns, repo_path=None, include_gitops=False):
         routes.append({"name": m(route, "name"),
                        "service": (spec.get("to") or {}).get("name", ""),
                        "tls": tls.get("termination", "none")})
+    # Metadata-only, explicit network policies; never infer actual enforced flows
+    # from policy counts alone (CNI behavior and selectors are not tested here).
+    network_policy_summaries = []
+    for np in lists["networkpolicies"]:
+        spec = np.get("spec", {})
+        network_policy_summaries.append({
+            "name": m(np, "name"),
+            "types": spec.get("policyTypes", []),
+            "ingress_rules": len(spec.get("ingress") or []),
+            "egress_rules": len(spec.get("egress") or []),
+            "pod_selector_labels": sorted((spec.get("podSelector") or {}).get("matchLabels", {}).keys())
+        })
     consumers = []
     svc_map = {s["name"]: s["workload_candidates"] for s in services}
     for w in lists["deployments"] + lists["statefulsets"] + lists["daemonsets"]:
@@ -374,6 +388,7 @@ def analyze_namespace(ns, repo_path=None, include_gitops=False):
         "source": "read-only oc get + optional oc adm top; no resource modifications",
         "counts": counts,
         "workloads": workloads, "pvc": pvcs, "services": services, "routes": routes,
+        "network_policy_summaries": network_policy_summaries,
         "db_consumer_candidates": consumers, "gitops": argo, "gitops_api_accessible": gitops_accessible,
         "warnings_last_30": events, "unavailable_or_forbidden_resources": unavailable,
         "sample": {"top_available": bool(top_ok and top), "cpu_req_m_active_containers": round(total_cpu_req, 3),
