@@ -20,6 +20,10 @@ The scope covers inventory, dependencies, workload resource sizing, migration wa
 
 **Hybrid target assessment:** [TradeOps CRC + external GPU HLD](architecture/TRADEOPS_HYBRID_GPU_INFERENCE_HLD_2026-10-09.md). Keep the existing HP ZBook/OpenShift Local CRC for business workloads and the governed LiteLLM path; rent a GPU on demand or attach a dedicated Linux/NVIDIA workstation for inference. No GPU was purchased or deployed, cloud prices are **unverified planning inputs**, and Terraform remains owned by a qualified implementation repository per ADR-001.
 
+## I1 October 10 CRC runtime observation
+
+**Live instantaneous monitoring works:** `oc adm top` shows 1765m CPU (22%) and 18367Mi RAM (77%) for the CRC node. The original local collection warning came from an invalid `oc top` command; the collector now dispatches correctly. A [sanitized analysis](evidence/I1_CRC_LIVE_METRICS_2026-10-10.md) and [offline test](tests/test_local_collector_top_dispatch.sh) are available. These numbers are **not P95** and cannot directly validate production Cloud worker sizing.
+
 ## First assessment
 
 | Profile | Nodes | Total node vCPU | Total node RAM | Indicative persistent storage | Run schedule |
