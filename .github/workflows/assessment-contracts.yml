@@ -42,5 +42,9 @@ jobs:
         run: python -m py_compile scripts/audit-crc-pod-pressure-readonly.py
       - name: Verify terminated builds do not count as active node pods
         run: python tests/test_crc_pod_pressure_readonly.py
+      - name: Compile non-Pod CRC legacy-object audit
+        run: python -m py_compile scripts/audit-crc-legacy-objects-readonly.py
+      - name: Verify zero-ReplicaSet rollback and terminal Build metadata inventory
+        run: python tests/test_crc_legacy_objects_readonly.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
