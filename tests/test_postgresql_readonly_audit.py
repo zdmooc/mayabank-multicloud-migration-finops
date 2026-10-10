@@ -71,9 +71,11 @@ class PostgreSQLReadOnlyTests(unittest.TestCase):
                 return SimpleNamespace(returncode=0,
                   stdout=json.dumps({"items": items[args[2]]}))
             raise AssertionError("unexpected command (possible mutation): " + str(args))
-        old = os.getcwd()
-        try:
-            with tempfile.TemporaryDirectory() as tmp:
+        # Windows cannot remove the temp directory while it is the process CWD.
+        # Restore CWD before the TemporaryDirectory context manager cleans up.
+        with tempfile.TemporaryDirectory() as tmp:
+            old = os.getcwd()
+            try:
                 os.chdir(tmp)
                 with patch.object(sys, "argv", ["audit"]), patch.object(subprocess, "run", side_effect=fake_run), contextlib.redirect_stdout(io.StringIO()) as out:
                     audit.main()
@@ -90,8 +92,8 @@ class PostgreSQLReadOnlyTests(unittest.TestCase):
                 self.assertIn("100.0", db_csv)
                 self.assertIn("50.0", db_csv)
                 self.assertNotIn("ULTRA_PRIVATE_TOKEN_VALUE", summary+db_csv+links_csv+out.getvalue())
-        finally:
-            os.chdir(old)
+            finally:
+                os.chdir(old)
 
 if __name__ == "__main__":
     unittest.main()
