@@ -101,6 +101,60 @@ def parse_top(output, ns):
 def add_finding(out, level, code, detail, proof):
     out.append({"severity": level, "code": code, "detail": detail, "evidence": proof})
 
+def summarize_pod_history(pods):
+    """Classify historical OpenShift Build pods separately from live application pods.
+
+    Use Build ownerReference when available, or the conventional <bc>-<N>-build
+    name. Sequence numbers identify build executions, never app replicas.
+    A Failed phase does not imply the subsequent/current container is unhealthy.
+    """
+    groups = collections.defaultdict(lambda: {"visible": 0, "completed": 0,
+                                               "failed": 0, "other": 0, "numbers": []})
+    build_count = completed = failed = other_build = active_nonbuild = other_nonbuild = 0
+    for pod in pods:
+        name = m(pod, "name", "") or ""
+        pattern = re.fullmatch(r"(.+)-(\d+)-build", name)
+        build_owner = any(o.get("kind") == "Build" for o in m(pod, "ownerReferences", []))
+        is_build = bool(pattern or build_owner)
+        phase = (pod.get("status") or {}).get("phase", "Unknown")
+        if not is_build:
+            if phase == "Running":
+                active_nonbuild += 1
+            else:
+                other_nonbuild += 1
+            continue
+        bc = pattern.group(1) if pattern else (
+            (m(pod, "labels", {}) or {}).get("openshift.io/build-config.name") or "BUILD_WITHOUT_CONFIG_NAME")
+        g = groups[bc]
+        g["visible"] += 1
+        build_count += 1
+        if pattern:
+            g["numbers"].append(int(pattern.group(2)))
+        if phase == "Succeeded":
+            g["completed"] += 1
+            completed += 1
+        elif phase == "Failed":
+            g["failed"] += 1
+            failed += 1
+        else:
+            g["other"] += 1
+            other_build += 1
+    return {
+        "historical_build_pods": build_count,
+        "build_completed": completed,
+        "build_failed": failed,
+        "build_other": other_build,
+        "non_build_running_pods": active_nonbuild,
+        "non_build_other_pods": other_nonbuild,
+        "build_groups": [
+            {"buildconfig": bc, **{k: v for k, v in g.items() if k != "numbers"},
+             "visible_build_numbers": sorted(g["numbers"])}
+            for bc, g in sorted(groups.items())
+        ],
+        "explanation": ("The N in <name>-N-build is the sequential BuildConfig execution number, "
+                        "not a running application replica. Missing numbers cannot establish deletion cause.")
+    }
+
 
 def workload_id(x):
     return (m(x, "namespace"), m(x, "name"))
@@ -383,10 +437,11 @@ def analyze_namespace(ns, repo_path=None, include_gitops=False):
                 add_finding(findings, "P1", "GITOPS_NOT_SYNCED", f"Application/{m(a, 'name')} status={argo[-1]['sync']}", "ArgoCD.status.sync")
     counts = {key: len(items) for key, items in lists.items() if key != "events"}
     counts["warning_events"] = len(events)
+    pod_history = summarize_pod_history(lists["pods"])
     report = {
         "namespace": ns, "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "source": "read-only oc get + optional oc adm top; no resource modifications",
-        "counts": counts,
+        "counts": counts, "pod_history": pod_history,
         "workloads": workloads, "pvc": pvcs, "services": services, "routes": routes,
         "network_policy_summaries": network_policy_summaries,
         "db_consumer_candidates": consumers, "gitops": argo, "gitops_api_accessible": gitops_accessible,
@@ -423,6 +478,18 @@ def markdown(rep):
     def cell(x): return str(x).replace("|", "/").replace("\n", " ")
     for w in rep["workloads"]:
         lines.append(f"| {w['kind']} | {cell(w['name'])} | {w['ready']}/{w['desired']} | {cell(', '.join(w['images']))} | {cell(', '.join(w['emptydir_mounts']) or '—')} | {cell(', '.join(w['pvc_claims']) or '—')} |")
+    history = rep.get("pod_history") or {}
+    lines += ["", "## Historique des pods de build (distinct des réplicas applicatifs)", "",
+              f"- Pods de build visibles: **{history.get('historical_build_pods', 'inconnu')}** "
+              f"(terminés: {history.get('build_completed', '?')}, en échec: {history.get('build_failed', '?')})",
+              f"- Pods non-build actuellement Running: **{history.get('non_build_running_pods', 'inconnu')}**",
+              "- Le numéro N de name-N-build compte les exécutions de BuildConfig, pas les replicas. "
+              "Les numéros absents ne prouvent pas une cause précise de disparition.", "",
+              "| BuildConfig | Pods visibles | Completed | Failed | Numéros visibles |",
+              "|---|---:|---:|---:|---|"]
+    for b in history.get("build_groups", []):
+        lines.append(f"| {cell(b['buildconfig'])} | {b['visible']} | {b['completed']} | "
+                     f"{b['failed']} | {cell(', '.join(map(str,b['visible_build_numbers'])))} |")
     lines += ["", "## Stockage", "", "| PVC | Bound | Demande | PV reclaim | Occupation réelle |", "|---|---|---|---|---|"]
     for p in rep["pvc"]:
         lines.append(f"| {cell(p['name'])} | {cell(p['phase'])} | {cell(p['requested'])} | {cell(p['reclaim'])} | NON MESURÉE |")
@@ -480,7 +547,13 @@ def main(argv=None):
         (root / f"{ns}.report.html").write_text(render_html(rep), encoding="utf-8")
         p0 = sum(f["severity"] == "P0" for f in rep["findings"])
         p1 = sum(f["severity"] == "P1" for f in rep["findings"])
-        summary.append(f"NAMESPACE={ns} WORKLOADS={len(rep['workloads'])} PODS={rep['counts']['pods']} PVCS={rep['counts']['pvc']} P0={p0} P1={p1} TOP_COVERAGE={rep['sample']['top_container_match']}")
+        history = rep["pod_history"]
+        summary.append(f"NAMESPACE={ns} WORKLOADS={len(rep['workloads'])} PODS={rep['counts']['pods']} "
+                       f"BUILD_PODS={history['historical_build_pods']} "
+                       f"BUILD_COMPLETED={history['build_completed']} BUILD_FAILED={history['build_failed']} "
+                       f"NON_BUILD_RUNNING={history['non_build_running_pods']} "
+                       f"PVCS={rep['counts']['pvc']} P0={p0} P1={p1} "
+                       f"TOP_COVERAGE={rep['sample']['top_container_match']}")
     summary.extend(["HTML_REPORT_PER_NAMESPACE=true", "HTML_NO_EXTERNAL_ASSETS=true", "POSTURE=READ_ONLY", "NO_SECRET_VALUES_STORED=true", "NO_SQL_OR_POD_RESTART=true", "NO_CALIBRATED_CO2_ESTIMATE=true",
                     "RESULTS_ARE_LOCAL_PRIVATE_AND_SINGLE_TIMEPOINT=true", f"EVIDENCE_DIR={root}"])
     (root / "SUMMARY.txt").write_text("\n".join(summary) + "\n", encoding="utf-8")
