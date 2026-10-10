@@ -165,3 +165,33 @@ Ces huit familles font **665 objets**, dont **282 ReplicaSets inactifs + 95 Buil
 4. Mesurer indépendamment l'espace disque (images registry/PVC/hostpath) ; ne pas annoncer de gain RAM de la suppression de 384 métadonnées. L'occupation réelle mémoire 84 % vient essentiellement des workloads actifs (kube-apiserver ~3486Mi, Prometheus ~1631Mi).
 
 **Aucune action destructive exécutée / données source conservées / NO_DELETE.**
+
+## Validation revisionHistoryLimit live — 10/10/2026
+
+L'opérateur a relevé la politique **live** de 50 Deployments au total dans quatre namespaces : `instant-payments-local` (18, tous à 1, `revisionHistoryLimit=3` pour 8 services métiers et `10` pour 10 autres), `mayabank-mq-local` (5, tous à 1, limite 10), `tradeops` (15, 14 à 0 et Prometheus à 1, limite 2 pour dix services métier et 10 pour cinq autres), `wero-poc` (12, tous à 0, limite 10).
+
+**Révision de la stratégie :** toutes les 282 ReplicaSets à 0 recensées restent rattachées à des Deployments existants. Le nombre global de RS à 0 n'est pas comparable directement à une seule valeur de `revisionHistoryLimit`. Une RS à zéro peut inclure la révision actuelle d'un Deployment arrêté ; compter par propriétaire UID et tenir compte de la progression du rollout, puis distinguer révision courante et ancien rollback avant toute réduction. Ne pas modifier `revisionHistoryLimit` en direct, afin d'éviter le drift GitOps et la suppression automatique de révisions nécessaires.
+
+`tradeops` conserve 52 RS à zéro malgré une limite 2 sur la plupart des services : cela justifie un diagnostic **par Deployment** des RS réelles, de leur révision et du statut rollout (pas une suppression automatique). `wero-poc` garde 38 RS à zéro, 12 Deployments SCALE0 et un PVC PostgreSQL Bound/Retain ; reconstruction Kind et retention des données non validées, donc NO_DELETE.
+
+Commande de diagnostic sans mutation :
+
+```bash
+oc get deploy,rs -A -o json | jq -r '
+  .items as $items
+  | [$items[] | select(.kind == "ReplicaSet")] as $allrs
+  | ("NAMESPACE\tDEPLOYMENT\tDESIRED\tREVISION_LIMIT\tRS_TOTAL\tRS_ZERO\tRS_NONZERO\tPROGRESSING_REASON"),
+    (
+      $items[]
+      | select(.kind == "Deployment")
+      | select(.metadata.namespace == "wero-poc" or .metadata.namespace == "tradeops" or .metadata.namespace == "instant-payments-local" or .metadata.namespace == "mayabank-mq-local")
+      | . as $d
+      | [$allrs[] | select(.metadata.namespace == $d.metadata.namespace and any(.metadata.ownerReferences[]?; .kind == "Deployment" and .uid == $d.metadata.uid))] as $owned
+      | [$owned[] | select((.spec.replicas // 1) == 0 and (.status.replicas // -1) == 0)] as $zero
+      | [$d.metadata.namespace, $d.metadata.name, ($d.spec.replicas // 1), ($d.spec.revisionHistoryLimit // 10), ($owned | length), ($zero | length), (($owned | length) - ($zero | length)), ([$d.status.conditions[]? | select(.type=="Progressing") | .reason][0] // "UNKNOWN")]
+      | @tsv
+    )
+'
+```
+
+Cette sortie ne permet pas à elle seule d'autoriser un nettoyage. La RAM à 84% est un problème séparé, porté surtout par des pods en fonctionnement.
