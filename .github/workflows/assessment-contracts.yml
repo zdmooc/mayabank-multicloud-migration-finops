@@ -24,5 +24,7 @@ jobs:
         run: python -m py_compile scripts/summarize-local-inventory.py
       - name: Run synthetic request capacity summary tests
         run: python tests/test_local_inventory_summary.py
+      - name: Validate private container metrics coverage matcher with synthetic inputs
+        run: python tests/test_local_top_coverage.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
