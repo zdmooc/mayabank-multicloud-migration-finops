@@ -69,6 +69,40 @@ class LegacyAuditContract(unittest.TestCase):
         self.assertEqual(result["totals"]["cronjobs_suspended"], 1)
         self.assertEqual(result["totals"]["pvc_bound"], 1)
 
+
+    def test_buildconfig_history_limits_and_missing_links(self):
+        items = sample()
+        items["buildconfigs"] = [
+            obj("payments", "mayabank-mq-build",
+                spec={"successfulBuildsHistoryLimit": 1, "failedBuildsHistoryLimit": 2})
+        ]
+        def build(name, phase, owner=None):
+            b = obj(name, "mayabank-mq-build", status={"phase": phase})
+            if owner is not None:
+                b["metadata"]["labels"] = {"openshift.io/build-config.name": owner}
+            return b
+        items["builds"] = [
+            build("payments-1", "Complete", "payments"),
+            build("payments-2", "Complete", "payments"),
+            build("payments-3", "Failed", "payments"),
+            build("payments-4", "Cancelled", "payments"),
+            build("payments-5", "Running", "payments"),
+            build("lost", "Complete"),
+            build("old-config-1", "Complete", "deleted-config"),
+        ]
+        rows = module.build_retention(items)
+        self.assertEqual(len(rows["rows"]), 1)
+        row = rows["rows"][0]
+        self.assertEqual(row["successful_limit"], 1)
+        self.assertEqual(row["failed_limit"], 2)
+        self.assertEqual(row["complete"], 2)
+        self.assertEqual(row["unsuccessful"], 2)
+        self.assertEqual(row["nonterminal"], 1)
+        self.assertEqual(row["complete_above_limit"], 1)
+        self.assertEqual(row["unsuccessful_above_limit"], 0)
+        self.assertEqual(rows["unmatched"]["missing_buildconfig_label"], 1)
+        self.assertEqual(rows["unmatched"]["buildconfig_not_found"], 1)
+
     def test_new_revision_not_aged(self):
         self.assertEqual(module.age_days("2026-10-09T09:00:00Z", NOW), 0)
         self.assertIsNone(module.age_days(None, NOW))
