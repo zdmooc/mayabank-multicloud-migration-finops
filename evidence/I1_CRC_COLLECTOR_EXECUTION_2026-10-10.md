@@ -1,6 +1,6 @@
 # I1 — CRC collector execution (user-provided console evidence)
 
-**Observation date:** 2026-10-10 (UTC 07:55:38–07:55:51). **Status:** COLLECTOR_RAN / POD_AND_PVC_FILES_WRITTEN / LIVE_METRICS_UNAVAILABLE.
+**Observation date:** 2026-10-10 (UTC 07:55:38–07:55:51). **Initial status:** COLLECTOR_RAN / POD_AND_PVC_FILES_WRITTEN / METRICS_COMMAND_FAILED. **Subsequent diagnosis:** Metrics available; the collector invoked unsupported `oc top` rather than `oc adm top`. See [corrected live evidence](I1_CRC_LIVE_METRICS_2026-10-10.md).
 
 ## Observed, sanitized from the local terminal
 
