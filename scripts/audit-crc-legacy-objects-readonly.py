@@ -83,7 +83,7 @@ def analysis(collections: dict[str, list[dict]], now: datetime | None = None) ->
                 owner = next((o.get("name") for o in (meta.get("ownerReferences") or [])
                              if o.get("kind") == "Deployment"), None)
                 # Both desired and observed status must be zero for zero-RS status.
-                status_replicas = (item.get("status") or {}).get("replicas", 0)
+                status_replicas = (item.get("status") or {}).get("replicas")
                 is_zero = replicas == 0 and status_replicas == 0
                 if is_zero:
                     zero_rs[ns]["zero"] += 1
