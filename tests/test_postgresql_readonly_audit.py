@@ -39,8 +39,7 @@ class PostgreSQLReadOnlyTests(unittest.TestCase):
         server = obj("tradeops", "postgres", "StatefulSet", {
             "replicas": 1,
             "template": {"metadata": {"labels": {"app": "postgres"}},
-                         "spec": {"containers": [{"name": "db", "image": "postgres:16"}],
-                                  "volumes": [{"name": "data", "persistentVolumeClaim": {"claimName": "pgdata"}}]}}
+                         "spec": {"containers": [{"name": "db", "image": "postgres:16"}]}}
         }, {"readyReplicas": 1})
         app = obj("tradeops", "api", "Deployment", {
             "replicas": 1,
@@ -51,7 +50,8 @@ class PostgreSQLReadOnlyTests(unittest.TestCase):
         })
         pod = obj("tradeops", "postgres-0", "Pod", {
             "containers": [{"name": "db", "image": "postgres:16",
-                            "resources": {"requests": {"cpu": "100m", "memory": "128Mi"}}}]
+                            "resources": {"requests": {"cpu": "100m", "memory": "128Mi"}}}],
+            "volumes": [{"name": "pgdata", "persistentVolumeClaim": {"claimName": "pgdata"}}]
         }, {"phase": "Running"},
             ownerReferences=[{"kind": "StatefulSet", "name": "postgres"}])
         svc = obj("tradeops", "postgres", "Service", {"selector": {"app": "postgres"}})
@@ -86,6 +86,7 @@ class PostgreSQLReadOnlyTests(unittest.TestCase):
                 self.assertIn("TOP_MATCHED_PG_CONTAINERS=1", summary)
                 self.assertIn("SVC_SELECTOR_CANDIDATE_NOT_PROVEN_SQL", links_csv)
                 self.assertIn("postgres:16", db_csv)
+                self.assertIn("pgdata:Bound:1Gi:Retain:pv-a", db_csv)
                 self.assertIn("100.0", db_csv)
                 self.assertIn("50.0", db_csv)
                 self.assertNotIn("ULTRA_PRIVATE_TOKEN_VALUE", summary+db_csv+links_csv+out.getvalue())
