@@ -113,6 +113,23 @@ def main():
         print(f"matched_container_rows={len(matched)}")
         print(f"missing_top_for_running_rows={len(unmatched_requests)}")
         print(f"top_rows_not_in_running_requests={len(unmatched_metrics)}")
+        matched_requested_cpu = sum(source[key][0] for key in matched)
+        matched_requested_mem = sum(source[key][1] for key in matched)
+        matched_observed_cpu = sum(metrics[key][0] for key in matched)
+        matched_observed_mem = sum(metrics[key][1] for key in matched)
+        coverage = 100 * len(matched) / len(keys)
+        print(f"running_inventory_metric_coverage_pct={coverage:.2f}")
+        print(f"matched_requested_cpu_m={matched_requested_cpu:.2f}")
+        print(f"matched_observed_cpu_m={matched_observed_cpu:.2f}")
+        print(f"matched_requested_memory_mi={matched_requested_mem:.2f}")
+        print(f"matched_observed_memory_mi={matched_observed_mem:.2f}")
+        if matched_requested_cpu > 0:
+            print(f"matched_cpu_observed_pct_request={100 * matched_observed_cpu / matched_requested_cpu:.2f}")
+        if matched_requested_mem > 0:
+            print(f"matched_memory_observed_pct_request={100 * matched_observed_mem / matched_requested_mem:.2f}")
+        print(f"unmatched_requested_cpu_m={sum(source[key][0] for key in unmatched_requests):.2f}")
+        print(f"unmatched_requested_memory_mi={sum(source[key][1] for key in unmatched_requests):.2f}")
+        print("RATIOS_NOT_LOAD_P95=true")
 
         grouped = defaultdict(lambda: dict(request_rows=0, top_rows=0, matched=0,
                                            req_cpu=0., req_mem=0., used_cpu=0., used_mem=0.))
