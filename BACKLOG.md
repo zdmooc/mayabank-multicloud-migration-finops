@@ -5,7 +5,7 @@
 | Gate | Outcome and acceptance | Status |
 |---|---|---|
 | I0 | Dated inventory, owner map, initial sizing and cost hypotheses | DOCUMENTED_BASELINE; measurement gaps remain |
-| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **STATIC_EVIDENCE_PACK_READY / OCT10_LIVE_SNAPSHOT_OBSERVED / P95_AND_FULL_BOM_OPEN** |
+| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **CRC_REQUEST_PRESSURE_DOCUMENTED / P95_AND_FULL_BOM_OPEN** |
 | I2 | Terraform/Kustomize/Helm non-mutating render and review, least privilege, budgets, teardown runbook | OPEN |
 | I3 | Bounded Instant Payments AKS pilot, authenticated E2E, metering, rollback, destroy | BLOCKED: prior explicit approval |
 | I4 | Equivalent EKS and GKE pilots, comparable evidence and cleanup | BLOCKED: I3 + approval |
@@ -34,6 +34,19 @@
 - [ ] Capture 7–30-day P95, actual PVC usage/IOPS/network and full provider-specific service BOM before closing I1.
 
 See [live sanitized measurements](evidence/I1_CRC_LIVE_METRICS_2026-10-10.md). Local CRC OpenShift overhead is not transferred 1:1 to the managed-cloud worker pool.
+
+## I1 update — 2026-10-10 08:10 UTC, local request saturation measured
+
+- [x] Read-only `oc` collection **fixed and confirmed**: `POD_TOP=AVAILABLE_CONTAINER_LEVEL_CURRENT_SAMPLE_ONLY`, `NODE_TOP=AVAILABLE_CURRENT_SAMPLE_ONLY`.
+- [x] Analyzed sanitized numerical inventory: 1 node, 7.80 allocatable vCPU, 23.02 GiB allocatable RAM; 149 Running pods, 3 Pending pods, 91 Succeeded, 29 Failed.
+- [x] Running container requests: 7318m CPU (**93.82% allocatable**) / 23267 Mi RAM (**98.70% allocatable**).
+- [x] Running+Pending regular-container requests: 7348m CPU (**94.21%**) / 23457 Mi RAM (**99.51%**). Pending is not necessarily scheduled; these percentages are **not** an exact node scheduler accounting.
+- [x] 15/15 PVC bound, 52 GiB capacity requested (**not actual bytes used**); 23 running/pending containers each lacking explicit CPU and RAM request.
+- [x] Added safe prefix-aggregate local summarizer and synthetic CI tests.
+- [ ] Analyze new local prefix-category summary; reconcile running vs scheduled requests including initContainers / pod overhead, and verify 3 Pending reasons.
+- [ ] Collect P95, storage used bytes/IOPS, exact active workload overlay and official complete BOM before **I1_CLOSED**.
+
+[Detailed I1 capacity observation](evidence/I1_CRC_REQUEST_CAPACITY_2026-10-10.md). 2×4-vCPU demo workers remain a selective-workload hypothesis, **not** proven adequate for all simultaneous CRC services. Kind Data Lakehouse remains separate.
 
 ## I1 entry criteria
 
