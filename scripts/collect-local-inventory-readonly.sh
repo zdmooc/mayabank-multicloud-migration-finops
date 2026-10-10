@@ -34,15 +34,26 @@ jq -r '(["node","allocatable_cpu","allocatable_memory","capacity_cpu","capacity_
    (.status.allocatable.memory // ""),(.status.capacity.cpu // ""),
    (.status.capacity.memory // "")] | @csv)' > "$DEST/node-allocatable.csv"
 
-if "$CLI" top pods -A --containers >"$DEST/top-pods-now.txt" 2>"$DEST/top-pods-warning.txt"; then
-  echo "POD_TOP=AVAILABLE_CURRENT_SAMPLE_ONLY" | tee -a "$DEST/README.txt"
+# OpenShift oc uses 'adm top', whereas kubectl uses top directly.
+# CRC 4.22.7 has been observed to reject 'oc top' (unknown command).
+if [ "$CLI" = "oc" ]; then
+  TOP_CMD=(oc adm top)
 else
-  echo "POD_TOP=UNAVAILABLE_NOT_AN_ERROR" | tee -a "$DEST/README.txt"
+  TOP_CMD=(kubectl top)
 fi
-if "$CLI" top nodes > "$DEST/top-nodes-now.txt" 2>>"$DEST/top-pods-warning.txt"; then
- echo "NODE_TOP=AVAILABLE_CURRENT_SAMPLE_ONLY" | tee -a "$DEST/README.txt"
+
+if "${TOP_CMD[@]}" pods -A --containers >"$DEST/top-pods-now.txt" 2>"$DEST/top-pods-warning.txt"; then
+  echo "POD_TOP=AVAILABLE_CONTAINER_LEVEL_CURRENT_SAMPLE_ONLY" | tee -a "$DEST/README.txt"
+elif "${TOP_CMD[@]}" pods -A >"$DEST/top-pods-now.txt" 2>>"$DEST/top-pods-warning.txt"; then
+  echo "POD_TOP=AVAILABLE_POD_LEVEL_CURRENT_SAMPLE_ONLY" | tee -a "$DEST/README.txt"
 else
- echo "NODE_TOP=UNAVAILABLE_NOT_AN_ERROR" | tee -a "$DEST/README.txt"
+  echo "POD_TOP=UNAVAILABLE_CHECK_WARNING" | tee -a "$DEST/README.txt"
+fi
+
+if "${TOP_CMD[@]}" nodes >"$DEST/top-nodes-now.txt" 2>>"$DEST/top-pods-warning.txt"; then
+  echo "NODE_TOP=AVAILABLE_CURRENT_SAMPLE_ONLY" | tee -a "$DEST/README.txt"
+else
+  echo "NODE_TOP=UNAVAILABLE_CHECK_WARNING" | tee -a "$DEST/README.txt"
 fi
 
 echo "I1_COLLECTION_FINISHED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a "$DEST/README.txt"
