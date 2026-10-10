@@ -183,10 +183,14 @@ def render_html(rep):
     findings=rep.get("findings",[])
     counts=rep.get("counts",{})
     sample=rep.get("sample",{})
+    history=rep.get("pod_history") or {}
     workloads=rep.get("workloads",[])
     sev=lambda p: sum(x.get("severity")==p for x in findings)
-    counts_txt=[("Workloads",len(workloads)),("Pods",counts.get("pods","—")),("PVC",counts.get("pvc","—")),
-                ("Services",counts.get("services","—")),("P0",sev("P0")),("P1",sev("P1"))]
+    counts_txt=[("Workloads",len(workloads)),("Pods totaux",counts.get("pods","—")),
+                ("Pods builds",history.get("historical_build_pods","?")),
+                ("Pods app Running",history.get("non_build_running_pods","?")),
+                ("PVC",counts.get("pvc","—")),("Services",counts.get("services","—")),
+                ("P0",sev("P0")),("P1",sev("P1"))]
     tiles="".join('<div class="stat"><span>'+e(k)+'</span><strong>'+e(v)+'</strong></div>' for k,v in counts_txt)
     wk=table(["Type","Workload","État","Images","PVC / emptyDir","CPU m req / top","RAM Mi req / top"],[
         [e(w.get("kind")),e(w.get("name")),tag(str(w.get("ready",0))+"/"+str(w.get("desired",0)),
@@ -198,6 +202,19 @@ def render_html(rep):
     findings_html=table(["Priorité","Code","Diagnostic","Preuve"],[
         [tag(x.get("severity"),"bad" if x.get("severity")=="P0" else ("amber" if x.get("severity")=="P1" else "neutral")),
          '<code>'+e(x.get("code"))+'</code>',e(x.get("detail")),e(x.get("evidence"))] for x in findings]) if findings else '<p class="muted">Aucun constat remonté par les contrôles automatisés. Cela ne démontre pas l’absence de risque.</p>'
+    build_rows=table(["BuildConfig","Builds visibles","Completed","Failed","Numéros visibles"], [
+        [e(x.get("buildconfig")),e(x.get("visible")),e(x.get("completed")),
+         e(x.get("failed")),e(", ".join(map(str,x.get("visible_build_numbers",[]))))]
+        for x in history.get("build_groups",[])]) if history.get("build_groups") else (
+         '<p class="muted">Aucun historique Build détecté, ou rapport JSON antérieur sans classification de builds.</p>')
+    build_head=(
+      '<p>Pods Build historiques : <b>'+e(history.get("historical_build_pods","non calculé"))+
+      '</b> ; Completed : <b>'+e(history.get("build_completed","?"))+
+      '</b> ; Failed : <b>'+e(history.get("build_failed","?"))+
+      '</b> ; pods applicatifs Running (hors Build) : <b>'+
+      e(history.get("non_build_running_pods","non calculé"))+'</b>.</p>'+
+      '<p class="evidence-label">Les noms &lt;service&gt;-N-build désignent des exécutions de construction. '
+      'N n’est jamais le numéro d’un réplica et les numéros manquants ne prouvent pas une cause de nettoyage.</p>')
     storage_rows=table(["PVC","Statut","Taille demandée","Politique PV","Occupation réelle"],[
         [e(x.get("name")),e(x.get("phase")),e(x.get("requested")),e(x.get("reclaim")),"NON MESURÉE"] for x in rep.get("pvc",[])]) if rep.get("pvc") else '<p class="muted">Aucun PVC déclaré dans cette capture.</p>'
     policy_rows=table(["Policy","Types","Ingress","Egress","Champs de sélecteur"],[
@@ -263,7 +280,7 @@ def render_html(rep):
       sect("sequence","3. Diagramme de séquence",sequence(rep)),
       sect("network","4. Architecture réseau",'<p>Routes : '+e(counts.get("routes"))+' · Services : '+e(counts.get("services"))+' · NetworkPolicies : '+e(counts.get("networkpolicies"))+'. Les objets Route peuvent exister lorsque les Pods sont arrêtés.</p>'+network(rep)+'<h3>Politiques réseau déclarées</h3>'+policy_rows),
       sect("storage","5. Stockage et durabilité",'<p class="muted">PVC Bound ≠ sauvegarde. « Retain » ≠ backup. Occupation et restaurabilité non mesurées par le script.</p>'+storage(rep)+storage_rows),
-      sect("inventory","6. Inventaire des workloads",wk),
+      sect("inventory","6. Inventaire des workloads",wk+'<h3>Historique de construction OpenShift (BuildConfig)</h3>'+build_head+build_rows),
       sect("dependencies","7. Dépendances candidates",'<p class="evidence-label">La présence d’une variable hôte et la correspondance Service/selector ne prouvent aucune connexion SQL, TCP ni invocation métier.</p>'+link_rows),
       sect("gitops","8. GitOps et exploitation",gitops+'<p>Événements Warning recensés : '+e(counts.get("warning_events",0))+'. Ressources inaccessibles : '+e(", ".join(rep.get("unavailable_or_forbidden_resources",[])) or "Aucune signalée")+'.</p>'),
       sect("commands","9. Commandes de contrôle à exécuter",'<p class="evidence-label">Toutes les commandes ci-dessous sont exclusivement des lectures. Copier une commande ne l’exécute pas. Les commandes de restauration, de redémarrage ou de suppression sont volontairement exclues.</p>'+cmd_list(rep)),
