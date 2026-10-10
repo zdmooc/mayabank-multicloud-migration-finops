@@ -132,3 +132,21 @@ Un seul répertoire privé contiendra les fichiers `wero-poc.report.html`, `maya
 **Important :** `cat "$OUT/tradeops.report.md"` échoue logiquement lorsque le dossier sélectionné par `ls -dt` correspond à un audit Instant Payments. Le nom du rapport doit correspondre au namespace effectivement audité ; le script ne mélange pas les trois projets.
 
 Statut : code et tests synthétiques CI validés ; la génération réelle de pages HTML pour Wero sur HP/CRC doit encore être exécutée par l'opérateur.
+
+## Les numéros des pods `-N-build` : historique, pas réplicas (10 octobre 2026)
+
+La première capture `wero-poc` listait **27 pods**, tous terminés, ce qui pouvait laisser croire à des réplicas applicatifs multiples. Ce sont **des Pods de Build OpenShift**, issus de BuildConfigs. Par exemple, `api-gateway-1-build` et `api-gateway-5-build` sont respectivement des exécutions n°1 et n°5 du build de l'image `api-gateway`, et **non** deux instances actives du service.
+
+L'historique opérateur compte : api-gateway 5 (4 terminés, 1 échec), consumer-psp 3 (3 réussis), event-audit-service 5 (5 réussis), mock-sct-inst 4 (4 réussis), mock-wero 3 (3 réussis), payment-service 7 (5 réussis, 2 échecs). **Total 27 builds visibles : 24 Completed et 3 Error.** Numéros manquants comme payment-service-2 à -9 et -11 à -16 : ne pas présumer la cause ni le nombre total d'exécutions depuis la seule liste de pods.
+
+**Amélioration auditeur :** `pod_history` classifie les noms conventionnels `<BuildConfig>-N-build` et les Pods ayant un owner Build ; conserve les compteurs par BuildConfig, les numéros visibles, les phases Succeeded/Failed et les Pods non-Build encore Running. Le rapport HTML montre désormais distinctement **« Pods totaux », « Pods builds », « Pods app Running »**, plus le tableau de builds. `SUMMARY.txt` ajoute `BUILD_PODS`, `BUILD_COMPLETED`, `BUILD_FAILED` et `NON_BUILD_RUNNING`. Un Build en erreur ancien ne doit pas être confondu avec un pod applicatif dégradé aujourd'hui.
+
+Vérification facultative **strictement en lecture seule** :
+
+```bash
+oc -n wero-poc get builds
+oc -n wero-poc get buildconfigs
+oc -n wero-poc get deployments -o custom-columns=NAME:.metadata.name,DESIRED:.spec.replicas,READY:.status.readyReplicas
+```
+
+Après `git pull --ff-only`, **relancer** `python scripts/audit-openshift-project-readonly.py --namespace wero-poc` pour obtenir ces nouveaux compteurs depuis le cluster. Convertir un ancien JSON avec le renderer seul n'apportera pas les compteurs qui n'ont pas été collectés dans cette version.
