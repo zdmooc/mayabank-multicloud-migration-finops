@@ -259,12 +259,12 @@ def show(report: dict) -> None:
         ])))
     print("")
     print("=== BUILDCONFIG HISTORY LIMITS (READ-ONLY, PER CONFIG) ===")
-    print("NAMESPACE\\tBUILDCONFIG\\tCOMPLETE\\tSUCCESS_LIMIT\\tFAILED_CANCELLED_ERROR\\tFAILED_LIMIT\\tACTIVE_OR_UNKNOWN\\tEXCESS_SUCCESS\\tEXCESS_FAILED\\tREVIEW_SCOPE")
+    print("NAMESPACE\tBUILDCONFIG\tCOMPLETE\tSUCCESS_LIMIT\tFAILED_CANCELLED_ERROR\tFAILED_LIMIT\tACTIVE_OR_UNKNOWN\tEXCESS_SUCCESS\tEXCESS_FAILED\tREVIEW_SCOPE")
     counts = report["build_retention"]
     for row in counts["rows"]:
         ns = row["namespace"]
         protected = ns.startswith(PROTECTED_PREFIXES) or ns in PROTECTED_NS
-        print("\\t".join(map(str, [
+        print("\t".join(map(str, [
             ns, row["name"], row["complete"],
             row["successful_limit"] if row["successful_limit"] is not None else "UNDEFINED",
             row["unsuccessful"],
