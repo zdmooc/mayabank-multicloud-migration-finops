@@ -122,3 +122,46 @@ python scripts/audit-crc-legacy-objects-readonly.py \
 Rapport attendu : `TOTAL_REPLICASETS`, `REPLICASETS_ZERO_DESIRED_AND_OBSERVED`, `REPLICASETS_ZERO_14_DAYS_OR_OLDER`, `REPLICASETS_ZERO_WITH_EXISTING_DEPLOYMENT`, `BUILDS_TERMINAL`, répartition complète par namespace, plus `SOURCE_DELETION_APPROVED=false`. Le script ne mesure **pas** les octets libérables dans le registry et ne teste **pas** les sauvegardes. Age de 14 jours = simple indicateur, jamais une règle automatique de suppression.
 
 **Recommandation:** rechercher les anciennes révisions **applicatives** à zéro, vérifier leur présence dans les Deployments existants et le besoin de rollback, puis seulement préparer une réduction d'historique par produit avec procédure approuvée. Conserver les PVC, le namespace Wero et les services `openshift-*` intacts. La RAM kube-apiserver (~3486Mi) et Prometheus (~1631Mi) reste une investigation séparée de l'hygiène des anciens objets.
+
+## 2026-10-10 14:30 UTC — audit complet historique hors Pods
+
+Exécution **réelle** de `python scripts/audit-crc-legacy-objects-readonly.py` sur le HP (3 tests synthétiques locaux : **OK**) :
+
+| Objet / classe | Mesure |
+|---|---:|
+| Builds | 95, **tous terminal** |
+| Builds terminés depuis ≥14 jours | **55** |
+| BuildConfigs | 24 |
+| ImageStreams | 85, dont **60 dans `openshift`** (namespace système : hors nettoyage automatique) |
+| Jobs | 7, **tous terminal** |
+| CronJobs | 2, **0 suspendu** |
+| ReplicaSets | 396 |
+| ReplicaSets désirés=0 et observés=0 | **282** |
+| ReplicaSets à 0 depuis ≥14 jours | **186** |
+| ReplicaSets à 0 appartenant à un Deployment existant | **282/282** |
+| ReplicaSets orphelins détectés | **0** |
+| PVC | **15, tous Bound** |
+| Routes | 41 |
+
+Ces huit familles font **665 objets**, dont **282 ReplicaSets inactifs + 95 Builds terminés + 7 Jobs terminés = 384** candidats à **revue** (non pas suppression). Les critères `>=14 jours` ne suffisent jamais à autoriser le retrait, et aucun octet libérable n'a été mesuré.
+
+### Classement des historiques et politique avant retrait
+
+| Namespace | RS 0 | RS 0 ≥14j | Builds terminés | Builds ≥14j | Classement |
+|---|---:|---:|---:|---:|---|
+| `tradeops` | 52 | 30 | 10 | 4 | PROTECTED (P0 données `emptyDir`, revenir sur rollback) |
+| `instant-payments-local` | 51 | 17 | 37 | 13 | PROTECTED (runtime GitOps) |
+| `wero-poc` | **38** | **38** | **27** | **27** | ARCHIVE FIRST, NO_DELETE (Kind reconstructibilité non prouvée) |
+| `mayabank-mq-local` | 24 | 24 | 0 | 0 | PROTECTED (messaging) |
+| `maya-freelance` | 11 | 11 | 5 | 5 | PROTECTED |
+| `mayabank-api` | 8 | 0 | 2 | 0 | REVIEW (récents, faible priorité) |
+| `mayainsurance-decision-local` | 5 | 3 | 6 | 4 | REVIEW du propriétaire/dépôt et usage réel |
+| `mayabank-mq-build` | 0 | 0 | 5 | 2 | REVIEW des builds et images, distinct de MQ runtime |
+
+**Plan conditionnel :**
+1. Relever les politiques `revisionHistoryLimit`, identités des Deployments propriétaires, annotations de révision/rollback et imageIDs référencés par les ReplicaSets. Éviter `oc delete rs` ad hoc : le gestionnaire de Deployment est responsable du cycle de vie des révisions, et les changements doivent être alignés dans GitOps.
+2. Pour Builds et Jobs terminal, identifier provenance, logs/preuves de build, références ImageStreams et politique d'archivage avant décision de conservation ou retrait.
+3. Pour Wero, archiver 38 RS + 27 Builds comme preuve et **maintenir le namespace, ses ImageStreams/BuildConfigs/Routes et son PVC** jusqu'à démonstration de reconstruction sur Kind. Une fois la reconstruction prouvée, décider d'un retrait source séparé : pas de suppression anticipée de rollback.
+4. Mesurer indépendamment l'espace disque (images registry/PVC/hostpath) ; ne pas annoncer de gain RAM de la suppression de 384 métadonnées. L'occupation réelle mémoire 84 % vient essentiellement des workloads actifs (kube-apiserver ~3486Mi, Prometheus ~1631Mi).
+
+**Aucune action destructive exécutée / données source conservées / NO_DELETE.**
