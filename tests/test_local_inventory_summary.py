@@ -62,6 +62,23 @@ class NumericInventorySummaryTests(unittest.TestCase):
             self.assertNotIn("internal-canary", with_groups.stdout)
             self.assertNotIn("demo-workload", with_groups.stdout)
             self.assertNotIn("synthetic-node", with_groups.stdout)
+            (root / "top-pods-now.txt").write_text(
+                "NAMESPACE POD NAME CPU(cores) MEMORY(bytes)\n"
+                "openshift-testing internal-canary app 2m 16Mi\n"
+                "demo-workload pending-pod app 1m 4Mi\n",
+                encoding="utf-8"
+            )
+            measured = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/summarize-local-inventory.py"),
+                 "--workload-groups", "--observed-top", str(root)],
+                capture_output=True, text=True, check=True
+            )
+            self.assertIn("TOP_SAMPLE_ROWS=2", measured.stdout)
+            self.assertIn("top_group_openshift_prefix_all_used_cpu_m=2.00", measured.stdout)
+            self.assertIn("top_group_unclassified_other_used_memory_mi=4.00", measured.stdout)
+            self.assertIn("TOP_SCOPE=single_point_in_time_NOT_P95_or_load_test", measured.stdout)
+            self.assertNotIn("internal-canary", measured.stdout)
+            self.assertNotIn("demo-workload", measured.stdout)
             self.assertNotIn("internal-canary", proc.stdout)
             self.assertNotIn("synthetic-node", proc.stdout)
             self.assertNotIn("demo-workload", proc.stdout)
