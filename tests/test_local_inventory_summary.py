@@ -51,6 +51,17 @@ class NumericInventorySummaryTests(unittest.TestCase):
             self.assertEqual(data["openshift_prefix_active_requests_cpu_m"], "500.00")
             self.assertEqual(data["other_namespace_prefix_active_requests_cpu_m"], "100.00")
             self.assertEqual(data["pvc_requested_gib"], "5.00")
+            with_groups = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/summarize-local-inventory.py"),
+                 "--workload-groups", str(root)],
+                capture_output=True, text=True, check=True,
+            )
+            self.assertIn("group_openshift_prefix_all_requests_cpu_m=500.00", with_groups.stdout)
+            self.assertIn("group_unclassified_other_requests_cpu_m=100.00", with_groups.stdout)
+            self.assertIn("GROUP_CAVEAT=not_a_cloud_migration_target_or_live_utilization", with_groups.stdout)
+            self.assertNotIn("internal-canary", with_groups.stdout)
+            self.assertNotIn("demo-workload", with_groups.stdout)
+            self.assertNotIn("synthetic-node", with_groups.stdout)
             self.assertNotIn("internal-canary", proc.stdout)
             self.assertNotIn("synthetic-node", proc.stdout)
             self.assertNotIn("demo-workload", proc.stdout)
