@@ -20,6 +20,10 @@ The scope covers inventory, dependencies, workload resource sizing, migration wa
 
 **Hybrid target assessment:** [TradeOps CRC + external GPU HLD](architecture/TRADEOPS_HYBRID_GPU_INFERENCE_HLD_2026-10-09.md). Keep the existing HP ZBook/OpenShift Local CRC for business workloads and the governed LiteLLM path; rent a GPU on demand or attach a dedicated Linux/NVIDIA workstation for inference. No GPU was purchased or deployed, cloud prices are **unverified planning inputs**, and Terraform remains owned by a qualified implementation repository per ADR-001.
 
+## I1 — 10 October grouped observed versus requested CPU/RAM
+
+[Measured snapshot comparison](evidence/I1_CRC_REQUESTS_VS_OBSERVED_2026-10-10.md): across 216 top per-container metric rows the local collector reported **1194m CPU / 19064 Mi memory** versus **7318m / 23267 Mi requested** across 217 active regular-container records. Ratios of 16.3% CPU and 81.9% RAM are **single-sample comparisons with incomplete identity coverage, not P95/production sizing**. Payments namespace memory **3079/3200 Mi (96.2%)** and OpenShift-prefix **13965/14305 Mi (97.6%)** warrant memory peak and OOM review. [Offline matching checker](scripts/check-local-top-coverage.py) provides anonymized coverage counts; no raw pod identities leave the local workstation. No regional Cloud architecture choice or provider spending approved.
+
 ## I1 October 10 CRC runtime observation
 
 **Live instantaneous monitoring works:** `oc adm top` shows 1765m CPU (22%) and 18367Mi RAM (77%) for the CRC node. The original local collection warning came from an invalid `oc top` command; the collector now dispatches correctly. A [sanitized analysis](evidence/I1_CRC_LIVE_METRICS_2026-10-10.md) and [offline test](tests/test_local_collector_top_dispatch.sh) are available. These numbers are **not P95** and cannot directly validate production Cloud worker sizing.
