@@ -18,5 +18,7 @@ jobs:
           python-version: "3.12"
       - name: Syntax check local read-only collector
         run: bash -n scripts/collect-local-inventory-readonly.sh
+      - name: Check safe local summarizer syntax
+        run: python -m py_compile scripts/summarize-local-inventory.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
