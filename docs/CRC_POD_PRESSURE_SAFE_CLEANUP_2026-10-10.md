@@ -227,3 +227,37 @@ The action above **only inventories metadata**; no cleanup candidates are promot
 ## 2026-10-10 — résultat réel des limites Builds
 
 Audit local exécuté et 4 tests OK. 95 Builds terminés / 24 BuildConfigs ; **0 dépassement de la limite des succès**, **0 dépassement de la limite des échecs/annulations** pour chaque BuildConfig. Aucun Build sans lien BuildConfig et aucun lien vers un BuildConfig disparu. Wero : 27 Builds terminés (24 réussis, 3 non réussis), six politiques 5/5 respectées. **BUILD_RETENTION_COMPLIANT — aucun nettoyage correctif justifié.** Décision : conserver l'historique ; pas de suppression automatique ; pas d'économie de RAM mesurée. Prochaine enquête : espace réellement utilisé dans le registre d'images, puis mémoire kube-apiserver et Prometheus. Wero reste NO_DELETE.
+
+## 2026-10-10 — diagnostic containerStatuses API Server et Prometheus
+
+L'opérateur a interrogé `oc get pod -o json` en lecture seule sur les deux premiers consommateurs mémoire, après son relevé `oc adm top pods -A` :
+
+- `openshift-kube-apiserver/kube-apiserver-crc` : **3486Mi** pour le **pod entier** selon `oc adm top`, **5 containers**, tous `restartCount=17`, tous `lastState={}`. Container principal request `265m CPU, 1Gi mémoire`; auxiliaires : trois requests `50Mi` + un `50Mi` supplémentaire (quatre à 50Mi). Aucun champ `limits` dans les ressources affichées.
+- `openshift-monitoring/prometheus-k8s-0` : **1631Mi** au niveau **pod entier**, **6 containers**, tous `restartCount=16`, tous `lastState={}`. Container Prometheus principal request `70m CPU, 1Gi mémoire`; autres : 10Mi config-reloader, 25Mi thanos, 15Mi proxy web, 15Mi autre proxy, 10Mi proxy thanos. Aucun `limits` affiché.
+
+**Interprétation prudente** : une request mémoire de 1Gi **n'est pas une limite de consommation ni une preuve d'OOM**. Comparer `top pod` (somme des containers) uniquement aux requests **agrégées** du pod, et préférer le prochain `oc adm top pods -A --containers --sort-by=memory` pour attribuer la RAM à chaque container. La synchronisation de cinq containers à 17 redémarrages et six containers à 16 suggère des événements communs (pod runtime/VM/nœud), mais **ne prouve ni crash du système ni OOM**. Ces comptes peuvent couvrir toute la durée de vie des pods, pas uniquement les trois reboots récents du PC. `lastState={}` ne contient pas la cause du dernier arrêt; les événements historiques et logs peuvent avoir expiré.
+
+Contrôles suivants, **read-only** :
+
+```bash
+oc adm top pods -A --containers --sort-by=memory | sed -n '1,40p'
+oc get nodes -o json | jq -r '
+  .items[] | .metadata.name as $node
+  | .status.conditions[]?
+  | select(.type=="MemoryPressure" or .type=="DiskPressure" or .type=="PIDPressure" or .type=="Ready")
+  | [$node,.type,.status,.reason,(.lastTransitionTime // "unknown")] | @tsv
+'
+for ref in "openshift-kube-apiserver kube-apiserver-crc" "openshift-monitoring prometheus-k8s-0"; do
+  read -r ns pod <<< "$ref"
+  oc -n "$ns" get pod "$pod" -o json | jq -r '
+    "POD=\(.metadata.namespace)/\(.metadata.name) CREATED=\(.metadata.creationTimestamp)",
+    (.status.containerStatuses[]? |
+      "CONTAINER=\(.name) RESTARTS=\(.restartCount) CURRENT_STARTED=\(.state.running.startedAt // "unknown") LAST_TERMINATED_REASON=\(.lastState.terminated.reason // "unknown") LAST_EXIT=\(.lastState.terminated.exitCode // "unknown")")
+  '
+done
+powershell.exe -NoProfile -Command 'Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize,FreePhysicalMemory,LastBootUpTime'
+```
+
+Le dernier relevé Windows exprime la mémoire en **Kio** ; ne pas comparer directement les valeurs Windows en Kio aux MiB du `oc adm top`. En complément de l'état des nœuds, garder les journaux d'événements Windows si le HP a réellement gelé. Ne pas modifier les ressources du kube-apiserver, les quotas Prometheus ou les Operators tant que la causalité n'est pas prouvée.
+
+**Statut : mémoire élevée confirmée / anomalie ou OOM non prouvés / investigation RAM ET hôte ouverte / NO_MUTATION.**
