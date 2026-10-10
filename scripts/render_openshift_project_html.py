@@ -83,7 +83,8 @@ def network(rep):
         y=40+i*64
         svcy[s.get("name")]=y+26
         target=", ".join(s.get("workload_candidates",[])) or "cible non cartographiée"
-        parts.append(box_svg(480,y,395,52,s.get("name","?"),target,"svc"))
+        ports=", ".join(s.get("ports",[])) or "ports indisponibles"
+        parts.append(box_svg(480,y,395,52,s.get("name","?"),target+" • "+ports,"svc"))
     for i,r in enumerate(routes):
         y1=40+i*64+26
         y2=svcy.get(r.get("service"))
@@ -164,6 +165,14 @@ def cmd_list(rep):
       ("État Argo CD des applications", "oc -n openshift-gitops get applications.argoproj.io"),
       ("Contrôle PostgreSQL PVC sans changement",f"oc -n {ns} get pvc -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,VOLUME:.spec.volumeName,SIZE:.spec.resources.requests.storage")
     ]
+    if ns=="wero-poc":
+        commands.extend([
+          ("Wero : statut et problèmes Argo CD","oc -n openshift-gitops get application wero-poc-crc -o jsonpath='{.status.sync.status}{\\\"\\\\n\\\"}{range .status.conditions[*]}{.type}{\\\": \\\"}{.message}{\\\"\\\\n\\\"}{end}'"),
+          ("Wero : Source et branche GitOps","oc -n openshift-gitops get application wero-poc-crc -o jsonpath='{.spec.source.repoURL}{\\\"\\\\n\\\"}{.spec.source.targetRevision}{\\\"\\\\n\\\"}'"),
+          ("Wero : PVC PostgreSQL et PV lié","oc -n wero-poc get pvc postgresql-data -o wide"),
+          ("Wero : anciennes images et BuildConfigs","oc -n wero-poc get imagestreams,buildconfigs"),
+          ("Wero : vérification zéro réplica","oc -n wero-poc get deploy -o custom-columns=NAME:.metadata.name,DESIRED:.spec.replicas,READY:.status.readyReplicas")
+        ])
     rows=[]
     for lab,cmd in commands:
         rows.append('<div class="command"><div class="command-head"><b>'+e(lab)+'</b><button class="copy" data-copy="'+e(cmd)+'" type="button">Copier</button></div><pre>'+e(cmd)+'</pre></div>')
@@ -191,6 +200,10 @@ def render_html(rep):
          '<code>'+e(x.get("code"))+'</code>',e(x.get("detail")),e(x.get("evidence"))] for x in findings]) if findings else '<p class="muted">Aucun constat remonté par les contrôles automatisés. Cela ne démontre pas l’absence de risque.</p>'
     storage_rows=table(["PVC","Statut","Taille demandée","Politique PV","Occupation réelle"],[
         [e(x.get("name")),e(x.get("phase")),e(x.get("requested")),e(x.get("reclaim")),"NON MESURÉE"] for x in rep.get("pvc",[])]) if rep.get("pvc") else '<p class="muted">Aucun PVC déclaré dans cette capture.</p>'
+    policy_rows=table(["Policy","Types","Ingress","Egress","Champs de sélecteur"],[
+       [e(p.get("name")),e(", ".join(p.get("types",[])) or "—"),e(p.get("ingress_rules")),e(p.get("egress_rules")),
+        e(", ".join(p.get("pod_selector_labels",[])) or "—")]
+       for p in rep.get("network_policy_summaries",[])]) if rep.get("network_policy_summaries") else '<p class="muted">Aucune NetworkPolicy visible ou métadonnées absentes. Le filtrage réseau effectif n’a pas été testé.</p>'
     link_rows=table(["Consommateur","Clé de configuration","Service candidat","Preuve"],[
         [e(x.get("application")),e(x.get("env_key")),e(x.get("service_candidate")),e(x.get("proof"))] for x in rep.get("db_consumer_candidates",[])]) if rep.get("db_consumer_candidates") else '<p class="muted">Aucun lien de dépendance inféré des variables hôte simples. Les Secrets/envFrom ne sont pas inspectés.</p>'
     gitops=table(["Application","Sync","Health","Automatique","Conditions"],[
@@ -248,7 +261,7 @@ def render_html(rep):
            +'<p class="muted">Une valeur top à 0 ne signifie pas forcément aucune consommation. Demandes = réservation scheduler, pas plafond ; aucune mesure P95.</p>'+findings_html),
       sect("architecture","2. Architecture applicative",'<p class="evidence-label">Trait plein/pointillé : liaison configurée par selector de Service, trafic non observé. Gris-orangé : scale zéro ou dégradation.</p>'+architecture(rep)),
       sect("sequence","3. Diagramme de séquence",sequence(rep)),
-      sect("network","4. Architecture réseau",'<p>Routes : '+e(counts.get("routes"))+' · Services : '+e(counts.get("services"))+' · NetworkPolicies : '+e(counts.get("networkpolicies"))+'. Les objets Route peuvent exister lorsque les Pods sont arrêtés.</p>'+network(rep)),
+      sect("network","4. Architecture réseau",'<p>Routes : '+e(counts.get("routes"))+' · Services : '+e(counts.get("services"))+' · NetworkPolicies : '+e(counts.get("networkpolicies"))+'. Les objets Route peuvent exister lorsque les Pods sont arrêtés.</p>'+network(rep)+'<h3>Politiques réseau déclarées</h3>'+policy_rows),
       sect("storage","5. Stockage et durabilité",'<p class="muted">PVC Bound ≠ sauvegarde. « Retain » ≠ backup. Occupation et restaurabilité non mesurées par le script.</p>'+storage(rep)+storage_rows),
       sect("inventory","6. Inventaire des workloads",wk),
       sect("dependencies","7. Dépendances candidates",'<p class="evidence-label">La présence d’une variable hôte et la correspondance Service/selector ne prouvent aucune connexion SQL, TCP ni invocation métier.</p>'+link_rows),
