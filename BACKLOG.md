@@ -5,7 +5,7 @@
 | Gate | Outcome and acceptance | Status |
 |---|---|---|
 | I0 | Dated inventory, owner map, initial sizing and cost hypotheses | DOCUMENTED_BASELINE; measurement gaps remain |
-| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **CRC_NAMESPACE_SEGMENTATION_DOCUMENTED / P95_AND_FULL_BOM_OPEN** |
+| I1 | Regional service/SKU pricing, rendered requests/limits, measured usage, dependency graph, target HLD | **CRC_WORKLOAD_GROUPS_DOCUMENTED / P95_AND_FULL_BOM_OPEN** |
 | I2 | Terraform/Kustomize/Helm non-mutating render and review, least privilege, budgets, teardown runbook | OPEN |
 | I3 | Bounded Instant Payments AKS pilot, authenticated E2E, metering, rollback, destroy | BLOCKED: prior explicit approval |
 | I4 | Equivalent EKS and GKE pilots, comparable evidence and cleanup | BLOCKED: I3 + approval |
@@ -59,6 +59,16 @@ See [live sanitized measurements](evidence/I1_CRC_LIVE_METRICS_2026-10-10.md). L
 - [ ] Finish cloud target workload classification, P95 usage, actual disk and IOPS, node headroom, and complete regional cost BOM.
 
 See evidence/I1_CRC_NAMESPACE_SEGMENTATION_2026-10-10.md. Status: I1 OPEN.
+
+## I1 grouped products and shared dependencies — 2026-10-10
+
+- [x] Local `--workload-groups` evidence reconciles to **149 Running pods / 7318m CPU / 23267 MiB RAM**.
+- [x] Product-labelled namespace groups: **27 Running pods / 1080m CPU / 4832 MiB**. Includes databases and support services inside product namespaces; **not pure stateless application load**.
+- [x] Other non-OpenShift groups: **14 pods / 1635m CPU / 4130 MiB**. Includes Keycloak, IBM MQ, shared OTel, platform operator and mixed API workloads.
+- [x] OpenShift-prefix platform groups: **108 pods / 4603m CPU / 14305 MiB**. Not all dispensable on managed Kubernetes.
+- [x] [Scoped migration comparison](evidence/I1_CRC_WORKLOAD_GROUPS_2026-10-10.md): Payments 19 pods / 505m / 3200Mi; TradeOps 4 / 225m / 768Mi (not full product); MQ 5 / 850m / 1792Mi; identity 3 / 600m / 1730Mi.
+- [x] Added optional local `--observed-top` to compare these same namespace categories to a **single CPU/RAM usage snapshot**, not a P95.
+- [ ] Run the new local snapshot comparison, select the exact Payments pilot slice, and separate business vs stateful/observability/identity components. Then collect P95, Kind inventory and provider full BOM. **I1 not CLOSED**.
 
 ## I1 entry criteria
 
