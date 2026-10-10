@@ -80,3 +80,45 @@ oc get events -A --field-selector type=Warning --sort-by=.metadata.creationTimes
 ```
 
 Les relevés `oc adm top` sont des instantanés et ne permettent pas seuls d'attribuer la cause des gels Windows. Chercher aussi côté hôte Windows l'utilisation RAM et les erreurs/événements WSL/Hyper-V. **Aucun nettoyage n'a été effectué. Décision : RAM_DIAGNOSTIC_FIRST / INVENTORY_ONLY / NO_DELETE.**
+
+## Inventaire additionnel des objets non-Pod — observé le 10 octobre 2026
+
+L'utilisateur a exécuté en direct une boucle `oc get <resource> -A -o json | jq '.items | length'` et a obtenu :
+
+| Ressource | Total observé |
+| --- | ---: |
+| Builds | 95 |
+| BuildConfigs | 24 |
+| ImageStreams | 85 |
+| Jobs | 7 |
+| CronJobs | 2 |
+| ReplicaSets | 396 |
+| PVC | 15 |
+| Routes | 41 |
+| **Somme de ces huit familles** | **665** |
+
+**Ces 665 objets ne sont ni 665 ressources anciennes ni 665 objets supprimables** ; les catégories peuvent contenir objets actifs, rollback, propriétés de la plateforme et stockage critique.
+
+Les listes suivantes `oc get builds` et `oc get replicasets` sont chacune tronquées par `head -n 80`. L'erreur Git Bash `jq: error: writing output failed: Invalid argument` en fin de sortie est compatible avec une fermeture anticipée du tube par `head` : cela ne démontre pas une corruption du cluster. Les listes ne prouvent donc pas le nombre **total** de Builds terminés ou de ReplicaSets à zéro. Parmi les premières lignes, des Builds terminés remontent à septembre pour Instant Payments, Wero, MQ, TradeOps, Maya Freelance, Insurance ; les ReplicaSets à 0 montrent beaucoup de révisions Instant Payments et Maya Freelance. Les contrôleurs encore actifs peuvent toujours les utiliser pour rollback.
+
+### Nouvel audit de métadonnées sans suppression
+
+Pour obtenir les décomptes **complets**, avec distinction d'objets actifs / historiques et propriétaire du ReplicaSet, un script Python en lecture seule est maintenant disponible dans ce dépôt :
+
+- `scripts/audit-crc-legacy-objects-readonly.py` : `oc get` métadonnées de neuf catégories (huit objets ci-dessus + Deployments pour vérifier les propriétaires), aucune lecture de Secret et aucune mutation.
+- `tests/test_crc_legacy_objects_readonly.py` : jeux de données synthétiques, révisions liées à un Deployment, anciens Builds, PVC et CronJobs.
+- `.github/workflows/assessment-contracts.yml` : validation hors cluster.
+
+Commande proposée à l'opérateur depuis Git Bash :
+
+```bash
+cd /c/workspaces/mayabank-multicloud-migration-finops
+git pull --ff-only &&
+python tests/test_crc_legacy_objects_readonly.py &&
+python scripts/audit-crc-legacy-objects-readonly.py \
+  | tee /c/workspaces/crc-legacy-objects-20261010.txt
+```
+
+Rapport attendu : `TOTAL_REPLICASETS`, `REPLICASETS_ZERO_DESIRED_AND_OBSERVED`, `REPLICASETS_ZERO_14_DAYS_OR_OLDER`, `REPLICASETS_ZERO_WITH_EXISTING_DEPLOYMENT`, `BUILDS_TERMINAL`, répartition complète par namespace, plus `SOURCE_DELETION_APPROVED=false`. Le script ne mesure **pas** les octets libérables dans le registry et ne teste **pas** les sauvegardes. Age de 14 jours = simple indicateur, jamais une règle automatique de suppression.
+
+**Recommandation:** rechercher les anciennes révisions **applicatives** à zéro, vérifier leur présence dans les Deployments existants et le besoin de rollback, puis seulement préparer une réduction d'historique par produit avec procédure approuvée. Conserver les PVC, le namespace Wero et les services `openshift-*` intacts. La RAM kube-apiserver (~3486Mi) et Prometheus (~1631Mi) reste une investigation séparée de l'hygiène des anciens objets.
