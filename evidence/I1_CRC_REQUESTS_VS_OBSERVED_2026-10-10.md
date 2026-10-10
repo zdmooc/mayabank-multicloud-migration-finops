@@ -54,3 +54,13 @@
 - **I1-F:** inspect Kind Lakehouse independently; decide explicit workload concurrency.
 
 **Decision:** `I1_ACTIVE`; no cloud deployment, paid budget, 8/24/40-vCPU proposal promotion or Wero removal is authorized by this comparison.
+
+## Separate PostgreSQL workload inventory — 2026-10-10
+
+A later *read-only* OpenShift Deployment/StatefulSet scan identified **9 PostgreSQL server workloads (8 Ready/1 replica, 1 legacy Wero at 0 replicas)**, spanning 7 namespaces. Breakdown: 3 Instant Payments, 1 Maya Freelance, 1 IBM MQ payments, 1 Keycloak, 1 Tekton Results, 1 TradeOps, 1 Wero historical. Seven image tags use floating `latest`, one uses `postgres:16` and one uses a PostgreSQL 15 digest.
+
+This identifies **workloads**, not number of logical databases or proven DB client connections. The eight ready PostgreSQL workloads are not eight VMs. PostgreSQL resource requests, actual sampled CPU/RAM, used PVC bytes and managed database migration costs must be separately modeled; do not use an aggregated Payments namespace as application-only sizing.
+
+Canonical owner inventory: https://github.com/zdmooc/cadrage_202682030/blob/main/portfolio/CRC_POSTGRESQL_INVENTORY_2026-10-10.md
+
+No CRC changes or PostgreSQL scaling/removal authorized; Wero historical remains scale-zero.
