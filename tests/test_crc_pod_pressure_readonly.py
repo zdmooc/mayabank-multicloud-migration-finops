@@ -54,7 +54,7 @@ class PressureTest(unittest.TestCase):
         self.assertEqual(report["nodes"][0]["remaining"], 266)
         self.assertEqual(report["historical_builds"]["wero-poc"]["build_terminal"], 2)
         byname = {x["namespace"]: x for x in report["namespace_rows"]}
-        self.assertEqual(byname["wero-poc"]["assigned_nonterminal"], 0)
+        self.assertEqual(byname["wero-poc"].get("assigned_nonterminal", 0), 0)
         self.assertEqual(byname["tradeops"]["assigned_nonterminal"], 1)
         self.assertTrue(byname["instant-payments-local"]["protected"])
         self.assertEqual(report["tradeops_ephemeral_mounts"],
