@@ -48,3 +48,13 @@ Resources are requests and a momentary sample only. Do not use this snapshot as 
 5. **P2 — Wero:** preserve historical CSI PV until a validated backup/restore exists; maintain SCALE0/NO_DELETE.
 
 Decision: **NO DATABASE SCALE-DOWN, MIGRATION OR DELETION AUTHORIZED** by this snapshot.
+
+## Cross-check against TradeOps canonical source (2026-10-10)
+
+Canonical files in `zdmooc/TradeOps-GenAI-Integration`:
+- `infra/helm/tradeops/values-crc.yaml` explicitly sets `crc.ephemeralPlatformStorage: true`.
+- `docs/runbooks/CRC_TRADEOPS_PARK_RESUME.md` documents `emptyDir` on `/var/lib/postgresql/data` for PostgreSQL, `emptyDir` for Redpanda and transient Qdrant directories; its PARK policy deliberately leaves StatefulSets running to avoid losing lab state.
+
+This **explains the audit's NONE_DECLARED PVC** as a documented CRC design decision, not a demonstrated accidental missing PVC. A live pod volume inspection is still needed to confirm currently installed manifests match the Git configuration. **P0 risk is pod re-creation / restart of ephemeral stateful dependencies, not merely PVC absence.** Do not recommend casually deleting or restarting TradeOps StatefulSets; validate recovery/seed procedure before any lifecycle change.
+
+Reference: https://github.com/zdmooc/TradeOps-GenAI-Integration/blob/main/docs/runbooks/CRC_TRADEOPS_PARK_RESUME.md
