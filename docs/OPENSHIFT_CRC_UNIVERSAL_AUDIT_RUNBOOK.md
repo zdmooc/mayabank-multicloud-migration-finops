@@ -79,3 +79,56 @@ python tests/test_openshift_project_audit.py
 **Statut :** tests synthétiques réussis dans l'environnement de préparation ; exécution sur un CRC réel et certification de chaque analyse restent à réaliser.
 
 Si tu utilises plutôt le ZIP autonome hors dépôt, lance `python audit_openshift_project.py --namespace tradeops` depuis la racine du dépôt et `python test_audit_openshift_project.py` pour les tests.
+## Dashboard HTML autonome par projet (ajout du 10 octobre 2026)
+
+Depuis `main`, le collecteur **génère automatiquement un rapport HTML dans le même dossier privé que les fichiers JSON/Markdown**. Il contient une synthèse et les constats P0/P1/P2, un diagramme SVG des Services et workloads, une séquence logique illustrative, un schéma réseau Route → Service → workload, un diagramme de stockage PVC et emptyDir, GitOps, dépendances candidates et des commandes de diagnostic exclusivement en lecture seule, copiables. CSS, JS minimal et SVG sont intégrés : **aucun CDN, Internet, Mermaid ni extension** nécessaires pour consulter la page.
+
+### Wero : première exécution recommandée
+
+```bash
+cd /c/workspaces/mayabank-multicloud-migration-finops
+git pull --ff-only
+python tests/test_openshift_html_report.py
+python scripts/audit-openshift-project-readonly.py --namespace wero-poc
+
+# Toujours cibler le dossier du projet Wero : le dernier dossier global
+# peut appartenir à Instant Payments ou à un autre namespace.
+OUT="$(ls -dt evidence/local/private-openshift-audit-* | head -1)"
+ls "$OUT"
+explorer.exe "$(cygpath -w "$OUT/wero-poc.report.html")"
+```
+
+Pour régénérer le HTML **sans réinterroger CRC** à partir de la preuve JSON obtenue précédemment :
+
+```bash
+python scripts/render_openshift_project_html.py \
+  evidence/local/private-openshift-audit-20261010T120005Z/wero-poc.report.json
+
+explorer.exe "$(cygpath -w evidence/local/private-openshift-audit-20261010T120005Z/wero-poc.report.html)"
+```
+
+La capture antérieure ne stocke pas les liaisons Route → Service ni les ports/politiques réseau détaillés : pour ces nouveautés il faut relancer **l'audit en lecture seule**. Le fichier HTML existant est une reconstitution des métadonnées, **pas une session trafic enregistrée**.
+
+### Vérité des diagrammes Wero
+
+- La séquence métier Wero est **une illustration de référence** basée sur la documentation V2/V6 (paiement, PSP, Wero simulé, SCT Inst, PostgreSQL/outbox). Le CRC historique reste `SCALE0`, donc aucune séquence « en cours » n'est prétendue.
+- L'architecture dynamique utilise uniquement `Service.spec.selector` associé aux labels de workloads. **Un lien fléché n'est pas une requête ni une connectivité vérifiée**.
+- Le réseau présente uniquement les noms des Routes/Services, leur destination Service, les ports déclarés, le mode de terminaison TLS et les NetworkPolicies déclarées. Pas de flux TCP capturés, pas de scan réseau, pas de hostname DNS privé publié.
+- Le stockage montre les PVC/emptyDir recensés. Capacité PVC ≠ octets réellement occupés. Le rappel **64 Mio PostgreSQL** pour Wero est une mesure historique précédente, non une mesure effectuée par cet auditeur général.
+- L'état Argo CD Sync Unknown/ComparisonError doit être diagnostiqué à partir de `oc get application` (lecture seule). Ne pas modifier GitOps, démarrer les pods ou effacer les données.
+- Ne pas partager publiquement le rapport HTML sans contrôle : les noms internes de Services, namespaces, workloads et métadonnées restent visibles.
+
+### Pour plusieurs projets
+
+```bash
+python scripts/audit-openshift-project-readonly.py \
+  --namespace wero-poc \
+  --namespace mayabank-mq-local \
+  --namespace instant-payments-local
+```
+
+Un seul répertoire privé contiendra les fichiers `wero-poc.report.html`, `mayabank-mq-local.report.html` et `instant-payments-local.report.html`.
+
+**Important :** `cat "$OUT/tradeops.report.md"` échoue logiquement lorsque le dossier sélectionné par `ls -dt` correspond à un audit Instant Payments. Le nom du rapport doit correspondre au namespace effectivement audité ; le script ne mélange pas les trois projets.
+
+Statut : code et tests synthétiques CI validés ; la génération réelle de pages HTML pour Wero sur HP/CRC doit encore être exécutée par l'opérateur.
