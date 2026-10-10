@@ -57,9 +57,34 @@ def main():
             "pvc_bound_count":sum(r["phase"]=="Bound" for r in pvcs),
             "pvc_requested_gib":sum(memory_mi(r["requested_storage"]) for r in pvcs)/1024,
         }
+        alloc_cpu_m = sum(cpu_m(r["allocatable_cpu"]) for r in nodes)
+        alloc_mem_mi = sum(memory_mi(r["allocatable_memory"]) for r in nodes)
+        if alloc_cpu_m > 0 and alloc_mem_mi > 0:
+            items.update({
+                "active_requests_cpu_pct_allocatable": total_cpu / alloc_cpu_m * 100,
+                "active_requests_memory_pct_allocatable": total_mem / alloc_mem_mi * 100,
+                "running_requests_cpu_pct_allocatable": running_cpu / alloc_cpu_m * 100,
+                "running_requests_memory_pct_allocatable": running_mem / alloc_mem_mi * 100,
+                "headroom_after_active_requests_cpu_m": alloc_cpu_m - total_cpu,
+                "headroom_after_active_requests_memory_mi": alloc_mem_mi - total_mem,
+            })
+        pending = [r for r in pods if r["phase"] == "Pending"]
+        items["pending_container_cpu_request_m"] = sum(cpu_m(r["cpu_request"]) for r in pending)
+        items["pending_container_memory_request_mi"] = sum(memory_mi(r["memory_request"]) for r in pending)
+        # Namespace prefixes are only aggregated as category counts and resource sums.
+        # No pod, node, container or namespace identifiers are printed.
+        for group, selected in (
+            ("openshift_prefix", [r for r in active if r["namespace"].startswith("openshift-")]),
+            ("other_namespace_prefix", [r for r in active if not r["namespace"].startswith("openshift-")]),
+        ):
+            items[group + "_active_pods"] = len({(r["namespace"], r["pod"]) for r in selected})
+            items[group + "_active_requests_cpu_m"] = sum(cpu_m(r["cpu_request"]) for r in selected)
+            items[group + "_active_requests_memory_mi"] = sum(memory_mi(r["memory_request"]) for r in selected)
         for k,v in items.items():
             print(f"{k}={v:.2f}" if isinstance(v,float) else f"{k}={v}")
         print("SCOPE=declared_requests_only_NOT_measured_CPU_RAM_or_P95")
+        print("CAUTION=running_plus_pending_requests_NOT_equivalent_to_scheduled_node_reservations")
+        print("NAMESPACE_GROUPS=prefix_categories_only_NOT_exact_managed_cloud_system_overhead")
         print("PVC_SCOPE=requested_size_NOT_used_bytes")
     except (OSError, ValueError, KeyError):
         p.error("CSV missing or invalid; confirm local collector directory and format")
