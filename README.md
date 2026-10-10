@@ -24,6 +24,10 @@ The scope covers inventory, dependencies, workload resource sizing, migration wa
 
 **Live instantaneous monitoring works:** `oc adm top` shows 1765m CPU (22%) and 18367Mi RAM (77%) for the CRC node. The original local collection warning came from an invalid `oc top` command; the collector now dispatches correctly. A [sanitized analysis](evidence/I1_CRC_LIVE_METRICS_2026-10-10.md) and [offline test](tests/test_local_collector_top_dispatch.sh) are available. These numbers are **not P95** and cannot directly validate production Cloud worker sizing.
 
+## I1 — 10 October request-pressure evidence
+
+New [sanitized request/allocatable evidence](evidence/I1_CRC_REQUEST_CAPACITY_2026-10-10.md): CRC 1 node / 7.80 allocatable vCPU / 23.02 GiB RAM, 149 Running and 3 Pending pods; Running regular-container requests **7,318m CPU and 23,267 MiB RAM**, or **93.82% CPU and 98.70% memory of node allocatable**. Including Pending gives 7,348m/23,457MiB (94.21%/99.51%), but Pending requests may not be scheduled. These are **declared requests**, not measured CPU/RAM load. PVC: 15 Bound, 52 GiB requested; actual used bytes and P95 are unknown. The new [safe local summary](scripts/summarize-local-inventory.py) reports aggregated resource pressure by namespace category only.
+
 ## First assessment
 
 | Profile | Nodes | Total node vCPU | Total node RAM | Indicative persistent storage | Run schedule |
