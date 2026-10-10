@@ -223,3 +223,7 @@ python scripts/audit-crc-legacy-objects-readonly.py | tee /c/workspaces/crc-lega
 ```
 
 The action above **only inventories metadata**; no cleanup candidates are promoted automatically. Real per-BC counts must be observed before proposing any history shrink. Target Wero cannot be retired until cold Kind reconstruction and data-retention gates pass. The HP memory pressure (84%, apiserver ~3.5 GiB, Prometheus ~1.6 GiB) remains separate.
+
+## 2026-10-10 — résultat réel des limites Builds
+
+Audit local exécuté et 4 tests OK. 95 Builds terminés / 24 BuildConfigs ; **0 dépassement de la limite des succès**, **0 dépassement de la limite des échecs/annulations** pour chaque BuildConfig. Aucun Build sans lien BuildConfig et aucun lien vers un BuildConfig disparu. Wero : 27 Builds terminés (24 réussis, 3 non réussis), six politiques 5/5 respectées. **BUILD_RETENTION_COMPLIANT — aucun nettoyage correctif justifié.** Décision : conserver l'historique ; pas de suppression automatique ; pas d'économie de RAM mesurée. Prochaine enquête : espace réellement utilisé dans le registre d'images, puis mémoire kube-apiserver et Prometheus. Wero reste NO_DELETE.
