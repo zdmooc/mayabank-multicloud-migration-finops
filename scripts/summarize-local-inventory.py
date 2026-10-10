@@ -28,6 +28,8 @@ def memory_mi(q):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("directory", type=Path, help="Local evidence/local/private-* path")
+    p.add_argument("--workload-groups", action="store_true",
+                   help="Show only safe aggregate resource sums for known synthetic MayaBank workstream categories; no namespace names")
     a = p.parse_args()
     try:
         pods = records(a.directory, "pod-resources.csv")
@@ -82,6 +84,39 @@ def main():
             items[group + "_active_requests_memory_mi"] = sum(memory_mi(r["memory_request"]) for r in selected)
         for k,v in items.items():
             print(f"{k}={v:.2f}" if isinstance(v,float) else f"{k}={v}")
+        if a.workload_groups:
+            # Deliberately explicit synthetic workload classification, not a
+            # platform ownership guarantee. Unknown namespaces are aggregated.
+            # Never print raw namespace/pod names or serialize original CSVs.
+            known = {
+                "instant-payments-local": "product_payments",
+                "tradeops": "product_tradeops",
+                "maya-freelance": "product_freelance",
+                "mayainsurance-decision-local": "product_decision",
+                "mayabank-mq-local": "specialized_mq",
+                "keycloak-system": "shared_identity",
+                "mayabank-api": "mixed_api_gateway_and_product",
+                "shared-observability": "shared_otel",
+                "shared-platform-services": "shared_platform_operator",
+                "hostpath-provisioner": "local_lab_storage",
+            }
+            groups = {}
+            for r in active:
+                namespace = r["namespace"]
+                group = ("openshift_prefix_all" if namespace.startswith("openshift-")
+                         else known.get(namespace, "unclassified_other"))
+                groups.setdefault(group, []).append(r)
+            print("WORKLOAD_GROUPS=synthetic_explicit_mapping_EXPERIMENTAL")
+            for group in sorted(groups):
+                entries = groups[group]
+                pods_in_group = len({(r["namespace"], r["pod"]) for r in entries})
+                requested_cpu = sum(cpu_m(r["cpu_request"]) for r in entries)
+                requested_mem = sum(memory_mi(r["memory_request"]) for r in entries)
+                print(f"group_{group}_pods={pods_in_group}")
+                print(f"group_{group}_requests_cpu_m={requested_cpu:.2f}")
+                print(f"group_{group}_requests_memory_mi={requested_mem:.2f}")
+            print("GROUP_CAVEAT=not_a_cloud_migration_target_or_live_utilization")
+
         print("SCOPE=declared_requests_only_NOT_measured_CPU_RAM_or_P95")
         print("CAUTION=running_plus_pending_requests_NOT_equivalent_to_scheduled_node_reservations")
         print("NAMESPACE_GROUPS=prefix_categories_only_NOT_exact_managed_cloud_system_overhead")
