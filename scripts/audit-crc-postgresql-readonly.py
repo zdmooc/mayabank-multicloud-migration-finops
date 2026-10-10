@@ -157,10 +157,16 @@ def main():
         spec = w.get("spec", {})
         tmpl = spec.get("template", {}).get("spec", {})
         imgs = [c.get("image", "") for c in tmpl.get("containers", [])]
-        claim_names = [v["persistentVolumeClaim"]["claimName"] for v in tmpl.get("volumes", [])
-                       if "persistentVolumeClaim" in v]
+        # StatefulSet volumeClaimTemplates materialize actual PVC names in Pod specs.
+        # Inspect BOTH workload template volumes and already-existing Pod volumes.
+        claim_names = {v["persistentVolumeClaim"]["claimName"] for v in tmpl.get("volumes", [])
+                       if "persistentVolumeClaim" in v}
+        for attached_pod in attached:
+            for v in attached_pod.get("spec", {}).get("volumes", []):
+                if "persistentVolumeClaim" in v:
+                    claim_names.add(v["persistentVolumeClaim"]["claimName"])
         claim_reports = []
-        for cname in claim_names:
+        for cname in sorted(claim_names):
             claim = pvc_by_name.get((ns, cname), {})
             pv_name = claim.get("spec", {}).get("volumeName", "")
             pv = pv_by_name.get(pv_name, {})
