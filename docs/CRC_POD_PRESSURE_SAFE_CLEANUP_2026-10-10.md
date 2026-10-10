@@ -195,3 +195,14 @@ oc get deploy,rs -A -o json | jq -r '
 ```
 
 Cette sortie ne permet pas à elle seule d'autoriser un nettoyage. La RAM à 84% est un problème séparé, porté surtout par des pods en fonctionnement.
+
+## 2026-10-10 — contrôle des ReplicaSets par Deployment : aucune dérive manifeste
+
+Un second contrôle réel sur HP a corrélé les ReplicaSets aux Deployments via **owner UID**, sans modification des ressources, dans `tradeops` et `wero-poc`.
+
+- **TradeOps : 15 Deployments, 52 ReplicaSets à zéro.** Quatorze Deployments ont 0 réplica ; Prometheus garde 1. Dix services utilisant `revisionHistoryLimit=2` ont deux ou trois ReplicaSets chacun (le plus souvent trois = révision courante + deux précédentes), tous à zéro lorsqu'ils sont scale0. Pour les limites 10 : `litellm` 11 RS (tous à zéro), `ai-access-policy` 6, `grafana` 3, `otel-collector` 2 et `prometheus` 2 dont une RS non nulle. Pas de dépassement manifeste de la politique de conservation. `status.conditions[type=Progressing].reason=NewReplicaSetAvailable` est une preuve historique de rollout, **pas** de disponibilité actuelle.
+- **Wero historique : 12 Deployments scale0, 38 ReplicaSets à zéro.** Chaque Deployment a entre 2 et 6 RS et une limite de 10 anciennes révisions. Les 38 RS sont toujours liés par owner UID à leurs Deployments et ne sont pas une anomalie de rétention démontrée.
+
+**Rectification de la priorité de nettoyage :** ne pas diminuer `revisionHistoryLimit` ni effacer directement ces 90 RS ; la majorité relève d'un historique de rollback conforme, et certains incluent vraisemblablement la révision courante scale0. Les **282 RS à zéro** recensés sur tout CRC ne sont pas équivalents à 282 anciens artefacts sans utilité. Le bénéfice RAM immédiat de retirer cet historique n'est pas démontré.
+
+**Suite prioritaire :** audit de BuildConfig `successfulBuildsHistoryLimit` et `failedBuildsHistoryLimit` (valeurs live / propriétaire GitOps), métadonnées ImageStream et consommation réelle du registre/PVC ; investigation RAM de kube-apiserver (~3486Mi) et Prometheus (~1631Mi), sans modifier les opérateurs. Wero reste **NO_DELETE** tant que les six images OCI et la reconstruction Kind ne sont pas prouvées.
