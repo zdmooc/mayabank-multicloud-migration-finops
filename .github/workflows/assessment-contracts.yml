@@ -38,5 +38,9 @@ jobs:
         run: python -m py_compile scripts/render_openshift_project_html.py
       - name: Run synthetic HTML Wero architecture and sanitization tests
         run: python tests/test_openshift_html_report.py
+      - name: Compile read-only CRC pod pressure auditor
+        run: python -m py_compile scripts/audit-crc-pod-pressure-readonly.py
+      - name: Verify terminated builds do not count as active node pods
+        run: python tests/test_crc_pod_pressure_readonly.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
