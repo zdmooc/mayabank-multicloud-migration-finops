@@ -321,6 +321,15 @@ def analyze_namespace(ns, repo_path=None, include_gitops=False):
                    for src in (lists["deployments"] + lists["statefulsets"] + lists["daemonsets"]))]
         services.append({"name": m(s, "name"), "type": s.get("spec", {}).get("type", "ClusterIP"),
                          "workload_candidates": sorted(set(targets)), "selector_present": bool(sel)})
+    # Route hostname is deliberately NOT exported. Only its Service target and
+    # TLS termination mode are needed for an offline topology drawing.
+    routes = []
+    for route in lists["routes"]:
+        spec = route.get("spec", {})
+        tls = spec.get("tls") or {}
+        routes.append({"name": m(route, "name"),
+                       "service": (spec.get("to") or {}).get("name", ""),
+                       "tls": tls.get("termination", "none")})
     consumers = []
     svc_map = {s["name"]: s["workload_candidates"] for s in services}
     for w in lists["deployments"] + lists["statefulsets"] + lists["daemonsets"]:
@@ -364,7 +373,7 @@ def analyze_namespace(ns, repo_path=None, include_gitops=False):
         "namespace": ns, "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "source": "read-only oc get + optional oc adm top; no resource modifications",
         "counts": counts,
-        "workloads": workloads, "pvc": pvcs, "services": services,
+        "workloads": workloads, "pvc": pvcs, "services": services, "routes": routes,
         "db_consumer_candidates": consumers, "gitops": argo, "gitops_api_accessible": gitops_accessible,
         "warnings_last_30": events, "unavailable_or_forbidden_resources": unavailable,
         "sample": {"top_available": bool(top_ok and top), "cpu_req_m_active_containers": round(total_cpu_req, 3),
@@ -451,10 +460,13 @@ def main(argv=None):
             continue
         (root / f"{ns}.report.json").write_text(json.dumps(rep, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         (root / f"{ns}.report.md").write_text(markdown(rep), encoding="utf-8")
+        # Offline HTML contains inline CSS/SVG; no additional oc calls or network.
+        from render_openshift_project_html import render_html
+        (root / f"{ns}.report.html").write_text(render_html(rep), encoding="utf-8")
         p0 = sum(f["severity"] == "P0" for f in rep["findings"])
         p1 = sum(f["severity"] == "P1" for f in rep["findings"])
         summary.append(f"NAMESPACE={ns} WORKLOADS={len(rep['workloads'])} PODS={rep['counts']['pods']} PVCS={rep['counts']['pvc']} P0={p0} P1={p1} TOP_COVERAGE={rep['sample']['top_container_match']}")
-    summary.extend(["POSTURE=READ_ONLY", "NO_SECRET_VALUES_STORED=true", "NO_SQL_OR_POD_RESTART=true", "NO_CALIBRATED_CO2_ESTIMATE=true",
+    summary.extend(["HTML_REPORT_PER_NAMESPACE=true", "HTML_NO_EXTERNAL_ASSETS=true", "POSTURE=READ_ONLY", "NO_SECRET_VALUES_STORED=true", "NO_SQL_OR_POD_RESTART=true", "NO_CALIBRATED_CO2_ESTIMATE=true",
                     "RESULTS_ARE_LOCAL_PRIVATE_AND_SINGLE_TIMEPOINT=true", f"EVIDENCE_DIR={root}"])
     (root / "SUMMARY.txt").write_text("\n".join(summary) + "\n", encoding="utf-8")
     print("\n".join(summary))
