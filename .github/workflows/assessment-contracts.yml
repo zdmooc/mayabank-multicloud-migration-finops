@@ -26,5 +26,9 @@ jobs:
         run: python tests/test_local_inventory_summary.py
       - name: Validate private container metrics coverage matcher with synthetic inputs
         run: python tests/test_local_top_coverage.py
+      - name: Static compile for PostgreSQL read-only audit
+        run: python -m py_compile scripts/audit-crc-postgresql-readonly.py
+      - name: Offline synthetic PostgreSQL topology and redaction tests
+        run: python tests/test_postgresql_readonly_audit.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
