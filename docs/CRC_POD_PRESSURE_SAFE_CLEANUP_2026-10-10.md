@@ -206,3 +206,20 @@ Un second contrôle réel sur HP a corrélé les ReplicaSets aux Deployments via
 **Rectification de la priorité de nettoyage :** ne pas diminuer `revisionHistoryLimit` ni effacer directement ces 90 RS ; la majorité relève d'un historique de rollback conforme, et certains incluent vraisemblablement la révision courante scale0. Les **282 RS à zéro** recensés sur tout CRC ne sont pas équivalents à 282 anciens artefacts sans utilité. Le bénéfice RAM immédiat de retirer cet historique n'est pas démontré.
 
 **Suite prioritaire :** audit de BuildConfig `successfulBuildsHistoryLimit` et `failedBuildsHistoryLimit` (valeurs live / propriétaire GitOps), métadonnées ImageStream et consommation réelle du registre/PVC ; investigation RAM de kube-apiserver (~3486Mi) et Prometheus (~1631Mi), sans modifier les opérateurs. Wero reste **NO_DELETE** tant que les six images OCI et la reconstruction Kind ne sont pas prouvées.
+
+## 2026-10-10 — live BuildConfig retention policy 24/24
+
+Operator read-only `oc get buildconfigs -A -o json | jq` revealed **all 24 BuildConfigs have explicit history limits**, **23 configured with `successfulBuildsHistoryLimit=5` and `failedBuildsHistoryLimit=5`**, while `mayabank-mq-build/payments` has **2/2**. This is per success/failure group, **not a single combined quota**, and never authorizes pruning from a mere age/count match. Previous cluster audit: 95 terminal Builds, 55 aged ≥14 days. Aggregate 95 does not establish a breach of any individual BuildConfig limit.
+
+Extended existing `scripts/audit-crc-legacy-objects-readonly.py` to report a new **`=== BUILDCONFIG HISTORY LIMITS (READ-ONLY, PER CONFIG) ===`** table: each BuildConfig, its Complete/Failed+Error+Cancelled counts, both live retention limits, other-phase builds, excess only as **review signals**, and any Builds whose BuildConfig metadata link is missing/unmatched. It joins via explicit `openshift.io/build-config.name` metadata, not guessed name-prefix mapping. Synthetic regression tests `tests/test_crc_legacy_objects_readonly.py` now cover status grouping, per-type limit comparison and missing/deleted BuildConfig links. No changes to workloads, no Secret access, no delete commands.
+
+Next operator local verification:
+
+```bash
+cd /c/workspaces/mayabank-multicloud-migration-finops
+git pull --ff-only &&
+python tests/test_crc_legacy_objects_readonly.py &&
+python scripts/audit-crc-legacy-objects-readonly.py | tee /c/workspaces/crc-legacy-objects-20261010.txt
+```
+
+The action above **only inventories metadata**; no cleanup candidates are promoted automatically. Real per-BC counts must be observed before proposing any history shrink. Target Wero cannot be retired until cold Kind reconstruction and data-retention gates pass. The HP memory pressure (84%, apiserver ~3.5 GiB, Prometheus ~1.6 GiB) remains separate.
