@@ -57,6 +57,62 @@ def meta_id(item: dict) -> tuple[str, str]:
     metadata = item.get("metadata") or {}
     return (metadata.get("namespace") or "<unknown>", metadata.get("name") or "<unknown>")
 
+
+def build_retention(collections: dict[str, list[dict]]) -> dict:
+    """Compare actual Build phases with each BuildConfig's two history limits.
+
+    Never guess ownership from a name prefix; only explicit Build metadata links.
+    No pruning/cleanup commands are generated.
+    """
+    configs: dict[tuple[str, str], dict] = {}
+    for item in collections["buildconfigs"]:
+        key = meta_id(item)
+        spec = item.get("spec") or {}
+        configs[key] = {
+            "namespace": key[0],
+            "name": key[1],
+            "successful_limit": spec.get("successfulBuildsHistoryLimit"),
+            "failed_limit": spec.get("failedBuildsHistoryLimit"),
+            "complete": 0,
+            "unsuccessful": 0,
+            "nonterminal": 0,
+        }
+
+    unknown_links = Counter()
+    for item in collections["builds"]:
+        ns, _ = meta_id(item)
+        meta = item.get("metadata") or {}
+        label = (meta.get("labels") or {}).get("openshift.io/build-config.name")
+        annotation = (meta.get("annotations") or {}).get("openshift.io/build-config.name")
+        config_name = label or annotation
+        key = (ns, config_name)
+        if not config_name:
+            unknown_links["missing_buildconfig_label"] += 1
+            continue
+        if key not in configs:
+            unknown_links["buildconfig_not_found"] += 1
+            continue
+        phase = (item.get("status") or {}).get("phase")
+        kind = ("complete" if phase == "Complete" else
+                "unsuccessful" if phase in {"Failed", "Error", "Cancelled"} else
+                "nonterminal")
+        configs[key][kind] += 1
+
+    rows = []
+    for row in sorted(configs.values(), key=lambda x: (x["namespace"], x["name"])):
+        ok = row["successful_limit"]
+        bad = row["failed_limit"]
+        row["complete_above_limit"] = (
+            max(0, row["complete"] - ok) if isinstance(ok, int) and ok >= 0 else None
+        )
+        row["unsuccessful_above_limit"] = (
+            max(0, row["unsuccessful"] - bad)
+            if isinstance(bad, int) and bad >= 0 else None
+        )
+        rows.append(row)
+    return {"rows": rows, "unmatched": unknown_links}
+
+
 def analysis(collections: dict[str, list[dict]], now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     summary = defaultdict(Counter)
@@ -161,6 +217,7 @@ def analysis(collections: dict[str, list[dict]], now: datetime | None = None) ->
         "build_phase": build_phase,
         "zero_rs_total": zero_total,
         "terminal_build_total": build_total,
+        "build_retention": build_retention(collections),
     }
 
 def show(report: dict) -> None:
@@ -200,6 +257,26 @@ def show(report: dict) -> None:
             row["buildconfigs"], row["jobs"], row["cronjobs"],
             row["pvc"], row["routes"], "PROTECTED" if protected else "REVIEW_ONLY"
         ])))
+    print("")
+    print("=== BUILDCONFIG HISTORY LIMITS (READ-ONLY, PER CONFIG) ===")
+    print("NAMESPACE\\tBUILDCONFIG\\tCOMPLETE\\tSUCCESS_LIMIT\\tFAILED_CANCELLED_ERROR\\tFAILED_LIMIT\\tACTIVE_OR_UNKNOWN\\tEXCESS_SUCCESS\\tEXCESS_FAILED\\tREVIEW_SCOPE")
+    counts = report["build_retention"]
+    for row in counts["rows"]:
+        ns = row["namespace"]
+        protected = ns.startswith(PROTECTED_PREFIXES) or ns in PROTECTED_NS
+        print("\\t".join(map(str, [
+            ns, row["name"], row["complete"],
+            row["successful_limit"] if row["successful_limit"] is not None else "UNDEFINED",
+            row["unsuccessful"],
+            row["failed_limit"] if row["failed_limit"] is not None else "UNDEFINED",
+            row["nonterminal"],
+            row["complete_above_limit"] if row["complete_above_limit"] is not None else "UNKNOWN",
+            row["unsuccessful_above_limit"] if row["unsuccessful_above_limit"] is not None else "UNKNOWN",
+            "PROTECTED" if protected else "REVIEW_ONLY",
+        ])))
+    print(f"BUILDS_MISSING_BUILDCONFIG_LINK={counts['unmatched']['missing_buildconfig_label']}")
+    print(f"BUILDS_LINKED_TO_MISSING_BUILDCONFIG={counts['unmatched']['buildconfig_not_found']}")
+    print("BUILD_LIMIT_EXCESS_IS_REVIEW_ONLY_NOT_DELETION_APPROVAL")
     print("")
     print("=== NOT AUTOMATIC CLEANUP CANDIDATES ===")
     print("ZERO_RS=Deployment revision history may be needed for rollback.")
