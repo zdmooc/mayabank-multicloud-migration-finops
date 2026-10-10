@@ -46,5 +46,9 @@ jobs:
         run: python -m py_compile scripts/audit-crc-legacy-objects-readonly.py
       - name: Verify zero-ReplicaSet rollback and terminal Build metadata inventory
         run: python tests/test_crc_legacy_objects_readonly.py
+      - name: Compile safe CRC project PARK/RESUME
+        run: python -m py_compile scripts/crc-application-mode.py
+      - name: Test bounded reversible GitOps-aware project mode without cluster access
+        run: python tests/test_crc_application_mode.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
