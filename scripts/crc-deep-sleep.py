@@ -110,7 +110,7 @@ def finalize(p):
  if current: raise RuntimeError("RUNNING_PODS_REMAIN:"+",".join(current))
  s["status"]="PARKED"; snap(s)
  print("FINALIZE_RESULT=PASS", "PROJECT="+p, "PVC_DELETED=0",
-       "SNAPSHOT="+str(path(p)), sep="\\n")
+       "SNAPSHOT="+str(path(p)), sep="\n")
 def plan(p):
  s=inspect(p)
  print("MODE=PLAN_READ_ONLY", "PROJECT="+p, "ACTIVE="+",".join(w["kind"]+"/"+w["name"] for w in s["workloads"] if w["replicas"]),
