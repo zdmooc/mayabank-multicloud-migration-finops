@@ -105,3 +105,32 @@ Interprétation à faire ensuite **cas par cas**, avec preuve de backup ou carac
 
 **Sécurité** : le log d'initialisation CRC affiché dans la conversation contient un identifiant administrateur sensible ; ne jamais le copier dans ce dépôt, la CI ou un rapport public. Envisager une rotation/régénération conforme au mode d'authentification CRC en vigueur.
 
+
+
+## Analyse read-only des huit volumes /tmp — 12 octobre 2026
+
+**Preuve locale opérateur :** les huit Deployments précédemment exclus (`payment-orchestrator`, `reconciliation-service`, `acceptor-service`, `consumer-psp`, `payment-read-model`, `integration-camel`, `demo-cockpit`, `dependency-simulator`) exposent tous exactement un volume `tmp` de type `emptyDir`, monté sur `/tmp`. Aucun PVC/hostPath/CSI n'était listé dans cette sélection, mais la commande ciblait uniquement ces huit templates et ne validait ni la réversibilité des traitements métier ni le stockage externe.
+
+**Rapprochement du code owner** `zdmooc/mayabank-instant-payments-resilience-platform` :
+- `gitops/base/workloads.yaml` déclare le volume `tmp` sur `/tmp` avec `readOnlyRootFilesystem: true` pour les services principaux.
+- `gitops/tech-lead/base/workloads.yaml` décrit aussi un `tmp` pour `integration-camel` et `payment-read-model`.
+- `platform/helm/instant-payments/templates/workloads.yaml` documente le même pattern pour le packaging Helm (Kustomize overlay = source de vérité runtime).
+- `docs/architecture/05-kubernetes-openshift-gitops.md` explicite que `/tmp` est la zone en écriture d'un root filesystem en lecture seule. **Ce n'est pas une preuve de quiescence E2E et ne dit rien sur les transactions en cours.**
+- Des queues Kafka, des bases de données et des statuts de paiement restent exploités par ces services ; la reprise métier/UNKNOWN et le traitement des messages en vol doivent être validés avant leur arrêt.
+
+**Nouveau mode statique proposé (ne modifie pas Kubernetes)** :
+
+```bash
+cd /c/workspaces/mayabank-multicloud-migration-finops
+git pull --ff-only
+python tests/test_crc_application_mode.py
+python scripts/crc-application-mode.py plan --assess-tmp-only
+```
+
+Le classifieur optionnel accepte pour **analyse seulement** un unique volume `tmp` avec `emptyDir: {}`, exclusivement monté sur `/tmp` dans chaque conteneur, sans `subPath` ni volume data/CSI/PVC, avec `readOnlyRootFilesystem: true`. Il bloque en cas d'autre `emptyDir`, d'image de datastores, ou de doute de template.
+
+La sortie optionnelle doit toujours contenir `TMP_ONLY_ASSESSMENT=REPORT_ONLY`, `TMP_ONLY_PARK_ENABLED=false` et `BLOCKERS=TMP_ONLY_ASSESSMENT_NOT_PARK_AUTHORIZATION` : ce ne sont **pas** des autorisations de PARK. Le mode `park` ordinaire continue à refuser tout `emptyDir`, même `/tmp` ; le CLI rejette `park --assess-tmp-only`.
+
+**Gates à fermer avant un éventuel assouplissement opérationnel** : confirmer le template runtime de chacun des huit, le nombre de réplicas/labels/owner GitOps et absence HPA/PDB contradictoire ; la terminaison de traitements en cours, publication Kafka/outbox, aucune information unique stockée dans `/tmp`, ainsi que tests de reprise E2E et mesures réelles de RAM libérable. Tout changement PARK/RESUME doit être approuvé explicitement par l'opérateur avec fenêtre de service et rollback. Aucun scale, pause Argo CD, `crc stop` ou nettoyage effectué ici.
+
+**Verdict : `I1_TMP_ONLY_VOLUME_DISCOVERY_CONFIRMED / ASSESSMENT_ONLY / NO_PARK`.**
