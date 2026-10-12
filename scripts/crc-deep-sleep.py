@@ -78,6 +78,39 @@ def auto(a,n):
 def cron(ns,c,n):
  m.patch(ns,"cronjob",c["name"],{"spec":{"suspend":n}})
  if m.get(ns,"cronjob",c["name"])["spec"].get("suspend")!=n: raise RuntimeError("CRON_PATCH_FAILED")
+def running_pods(ns):
+ return [x["metadata"]["name"] for x in m.ls(ns,"pods")
+         if x.get("status",{}).get("phase")=="Running"]
+def wait_running_pods_gone(ns, seconds=180):
+ until=time.monotonic()+seconds
+ while time.monotonic()<until:
+  if not running_pods(ns): return
+  time.sleep(4)
+ raise RuntimeError("RUNNING_PODS_REMAIN:"+",".join(running_pods(ns)))
+def finalize(p):
+ # Read-only Kubernetes validation. Changes only the local saved status.
+ s=original(p)
+ if s["status"]=="PARKED":
+  print("ALREADY_PARKED=YES"); return
+ if s["status"]!="PARK_PARTIAL": raise RuntimeError("FINALIZE_REQUIRES_PARK_PARTIAL")
+ verify(s)
+ ns=s["namespace"]
+ for w in s["workloads"]:
+  obj=m.get(ns,w["kind"],w["name"])
+  if obj["spec"].get("replicas",1)!=0: raise RuntimeError("LIVE_REPLICAS_NOT_ZERO:"+w["name"])
+  if obj.get("status",{}).get("readyReplicas",0)!=0: raise RuntimeError("READY_REPLICAS_REMAIN:"+w["name"])
+ for a in s["apps"]:
+  live=m.get(a["namespace"],"application",a["name"])["spec"].get("syncPolicy",{}).get("automated")
+  if a["automated"] is not None and live is not None:
+   raise RuntimeError("ARGO_AUTOSYNC_STILL_ACTIVE:"+a["name"])
+ for c in s["cronjobs"]:
+  if m.get(ns,"cronjob",c["name"])["spec"].get("suspend") is not True:
+   raise RuntimeError("CRONJOB_NOT_SUSPENDED:"+c["name"])
+ current=running_pods(ns)
+ if current: raise RuntimeError("RUNNING_PODS_REMAIN:"+",".join(current))
+ s["status"]="PARKED"; snap(s)
+ print("FINALIZE_RESULT=PASS", "PROJECT="+p, "PVC_DELETED=0",
+       "SNAPSHOT="+str(path(p)), sep="\\n")
 def plan(p):
  s=inspect(p)
  print("MODE=PLAN_READ_ONLY", "PROJECT="+p, "ACTIVE="+",".join(w["kind"]+"/"+w["name"] for w in s["workloads"] if w["replicas"]),
@@ -105,7 +138,8 @@ def park(p):
     print("STOP=statefulset/"+name,flush=True); scale(ns,"statefulset",name,0); wait(ns,"statefulset",name,0)
   for w in s["workloads"]:
    if m.get(ns,w["kind"],w["name"])["spec"].get("replicas",1)!=0: raise RuntimeError("WORKLOAD_NOT_ZERO")
-  if any(x.get("status",{}).get("phase")=="Running" for x in m.ls(ns,"pods")): raise RuntimeError("RUNNING_PODS_REMAIN")
+  # Workload status reaches zero before terminating pods necessarily disappear.
+  wait_running_pods_gone(ns)
   s["status"]="PARKED"; snap(s)
  except Exception:
   s["status"]="PARK_PARTIAL"; snap(s); print("PARTIAL_STOP_NO_AUTORESTORE=YES",file=sys.stderr); raise
@@ -134,6 +168,6 @@ def resume(p):
  s["status"]="RESUMED";snap(s)
  print("RESUME_RESULT=PASS", "DATA_REBUILD_MAY_BE_REQUIRED=true",sep="\n")
 if __name__=="__main__":
- a=argparse.ArgumentParser();a.add_argument("mode",choices=("plan","park","resume"));a.add_argument("--project",choices=EXPECTED,required=True);v=a.parse_args()
- try: {"plan":plan,"park":park,"resume":resume}[v.mode](v.project)
+ a=argparse.ArgumentParser();a.add_argument("mode",choices=("plan","park","resume","finalize"));a.add_argument("--project",choices=EXPECTED,required=True);v=a.parse_args()
+ try: {"plan":plan,"park":park,"resume":resume,"finalize":finalize}[v.mode](v.project)
  except (RuntimeError,ValueError,KeyError,OSError) as e: print("CRC_DEEP_ERROR="+str(e)[:300],file=sys.stderr);sys.exit(2)
