@@ -139,3 +139,12 @@ oc adm top pods -n maya-freelance --containers
 ```
 
 **LICENSE_GATE: NOT_APPLICABLE** pour la documentation de mesures opérateur fournie sans nouveau contenu tiers ; le dépôt public demeure à revoir pour sa politique racine globale.
+
+
+## 2026-10-12 — relevé CRC après mise en veille des 11 Deployments
+
+Sortie opérateur `oc adm top nodes` après les deux PARK : `CPU=1972m (25%)`, `RAM=17221Mi (73%)`, mesure ponctuelle. Les neuf Deployments Instant Payments et les deux Maya Freelance ont préalablement été confirmés `0/0` par `oc get deploy` ; les bases et le socle OpenShift restent actifs.
+
+La sortie `oc adm top pods -A --containers --sort-by=memory` classe les pods avec leurs conteneurs (elle ne constitue pas un classement strict individuel de chaque conteneur). Principaux conteneurs observés : `openshift-kube-apiserver/kube-apiserver=3566Mi`, `openshift-monitoring/prometheus=1648Mi`, `keycloak-system/keycloak=491Mi`, `openshift-gitops/argocd-application-controller=437Mi`, `openshift-etcd/etcd=319Mi`, `instant-payments-local/redpanda=281Mi`. Le kube-apiserver et Prometheus totalisent `5214Mi` à eux seuls et sont des éléments à **ne pas réduire ou désactiver aveuglément**. Aucun nouveau PARK/scale/delete n'a été exécuté à ce stade.
+
+**Diagnostic** : la RAM observée du nœud est inférieure à 100%, mais la capacité d'admission d'un nouveau POC dépend aussi des `requests`, qui sont distinctes de `oc adm top nodes`. Prochain contrôle lecture seule : `oc describe node crc` rubrique `Allocated resources`, et métriques mémoire des pods actifs par namespace ; examiner les services optionnels uniquement après dépendances et reprise, sans toucher au control plane, etcd, Argo, bases ou brokers. Les gains de PARK ne sont pas la différence garantie entre deux snapshots éloignés.
