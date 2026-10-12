@@ -58,6 +58,29 @@ CRC_IDLE_RESUME=YES python scripts/crc-idle-services-mode.py resume --project in
 
 La reprise tente de remettre les réplicas des composants techniques avant les applications métier et peut nécessiter reconstitution de Kafka ou des données LAB temporaires. Les neuf applications métier restent PARKED jusqu'à ordre distinct via leur script d'origine.
 
-**Statut documentaire actuel : `SCRIPT_COMMITTED_CI_PENDING_OR_TESTED / RUNTIME_PARK_NOT_EXECUTED`.** Aucun arrêt de ces deux périmètres n'a encore été constaté.
+**Statut actuel : `RUNTIME_PARK_PROVEN` au 12/10/2026 ; voir le relevé de clôture ci-dessous.**
 
 `LICENSE_GATE: PENDING` : code original de pilotage, sans redistribution des binaires tiers, aucune licence modifiée ni attribuée.
+
+
+## Résultat runtime confirmé — 12 octobre 2026
+
+Le propriétaire a exécuté les deux commandes `park` sur le CRC Windows/OpenShift Local, avec les trois variables d'acquittement. **Le runtime est prouvé**, à distinguer des `PARK_RESULT=PASS` simulés lors des tests unitaires.
+
+- `CRC_IDLE_PARK=YES CRC_IDLE_ACK_DOWNTIME=YES CRC_IDLE_ACK_LAB_DATA_LOSS=YES python scripts/crc-idle-services-mode.py park --project instant` : **`PARK_RESULT=PASS`**. L'inventaire runtime montre **18 Deployments à `0/0` et `statefulset/mongodb-read-model` à `0/0`**. Les quatre PVC `data-mongodb-read-model-0`, `postgresql-acceptor-data`, `postgresql-consumer-data`, `postgresql-payments-data` restent `Bound`. Snapshot distinct : `~/.crc-capacity/crc-idle-instant.json`. Snapshot originel des 9 apps préservé.
+- `... park --project keycloak` : **`PARK_RESULT=PASS`**. CR `Keycloak.spec.instances` ramené à 0 via le contrôleur et `statefulset/keycloak=0/0`, `statefulset/postgresql=0/0`. L'opérateur `deployment/rhbk-operator=1/1` reste actif intentionnellement ; PVC `postgres-pvc` reste `Bound`. Snapshot : `~/.crc-capacity/crc-idle-keycloak.json`.
+
+**Mesures prises par l'opérateur après ces deux PARK** (comparées au relevé précédent après les sept projets en veille) :
+
+| Indicateur | Avant arrêt résiduel | Après arrêt résiduel | Écart |
+|---|---:|---:|---:|
+| RAM utilisée, `oc adm top nodes` | 16684Mi (70%) | 15853Mi (67%) | **-831Mi**, variation observée |
+| CPU utilisé | 1598m (20%) | 1431m (18%) | -167m |
+| CPU requests, `oc describe node` | 5833m (74%) | 5103m (65%) | **-730m** |
+| Memory requests | 18211Mi (77%) | 15203Mi (64%) | **-3008Mi** |
+| Memory limits | 20522Mi (87%) | 12330Mi (52%) | -8192Mi |
+
+Ces relevés ne prouvent pas une réduction strictement imputable de la consommation du nœud (métriques temporelles). Les *requests* en baisse représentent la capacité potentielle libérée pour le scheduler, sans garantie qu'un nouveau projet rentre compte tenu de ses propres requests/affinités/PVC.
+
+**Conclusion** : les sept POC personnels et leurs derniers services résiduels Instant Payments et Keycloak sont en veille selon le périmètre approuvé. Certains services OpenShift `openshift-*` et l'opérateur Keycloak restent actifs. **Ne pas tenter une nouvelle mise en veille** tant que ces snapshots sont `PARKED`. Reprise exclusivement sur ordre utilisateur, avec possible reconstruction des données éphémères. Ne pas confondre mise en veille de projets et arrêt de la VM CRC.
+
