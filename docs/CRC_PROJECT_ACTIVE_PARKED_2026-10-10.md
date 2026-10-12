@@ -68,3 +68,40 @@ Restaure d'abord les réplicas exacts enregistrés et **ensuite** les valeurs `a
 La mise en veille des services de paiement listés peut libérer de l'ordre de 1–2+ GiB selon les pods effectivement éligibles et leur terminaison effective ; **aucun gain chiffré n'est garanti** avant `oc adm top nodes` après l'opération. Kafka et les PostgreSQL restent actifs et consommeront de la mémoire. Pour davantage de place, une seconde vague devrait examiner `maya-freelance` et des observabilités locales **après** vérification de l'état des données, de GitOps et de la reprise ; jamais détruire PostgreSQL/Redpanda TradeOps `emptyDir` pour gagner 100Mi.
 
 **PARK et RESUME du nouveau script ont des tests simulés réussis en GitHub Actions, mais n'ont PAS encore été exécutés en live sur le HP.** La commande `plan` est la première étape opérationnelle; dès que son résultat est connu, on peut passer à `park` sans recommencer les anciens audits.
+
+## Réalité du premier PLAN exécuté — 2026-10-12
+
+L'opérateur a exécuté `python scripts/crc-application-mode.py plan` sur le CRC démarré, sans modification (`MODE=PLAN_READ_ONLY`) :
+
+- **Seul candidat** : `wero-ui`, 1 replica vers 0.
+- **Huit exclus** : `payment-orchestrator`, `reconciliation-service`, `acceptor-service`, `consumer-psp`, `payment-read-model`, `integration-camel`, `demo-cockpit`, `dependency-simulator`, tous `DATA_OR_EPHEMERAL_VOLUME` dans leurs templates de Deployment.
+- **Argo CD** : `instant-payments-tech-lead-shared-platform` serait modifiée seulement si PARK devait avoir lieu.
+- **Aucun snapshot** : `EXISTING_SNAPSHOT=NONE`.
+- **Problème d'ergonomie corrigé** : l'ancien PLAN affichait `BLOCKERS=NONE` malgré seulement une cible. Le vrai mode PARK exige depuis l'origine au moins **deux Deployments éligibles** et échouerait avant toute mutation. Le PLAN affiche désormais `BLOCKERS=LESS_THAN_TWO_ELIGIBLE_RUNNING_DEPLOYMENTS` lorsque ce seuil n'est pas atteint, plus un avertissement `PARK_BLOCKED_NO_CLUSTER_ACTION`.
+- **Décision** : `NO_PARK`, aucune libération RAM démontrée ; ne pas assouplir automatiquement le test `emptyDir` avant classification de sa destination, reconstructibilité et absence de données applicatives à perdre.
+
+Première vérification en lecture seule des volumes exclus (pas de valeurs de Secret) :
+
+```bash
+oc -n instant-payments-local get deployment -o json | jq -r '
+  .items[]
+  | select(.metadata.name as $n |
+      ["payment-orchestrator","reconciliation-service","acceptor-service",
+       "consumer-psp","payment-read-model","integration-camel",
+       "demo-cockpit","dependency-simulator"] | index($n))
+  | .metadata.name as $name
+  | .spec.template.spec as $spec
+  | ($spec.volumes // [])[]? as $vol
+  | select($vol | has("emptyDir") or has("persistentVolumeClaim") or
+                       has("hostPath") or has("ephemeral") or has("csi"))
+  | [$name, $vol.name,
+     ($vol | keys | map(select(. != "name")) | join(",")),
+     ([$spec.containers[]? | .volumeMounts[]? |
+       select(.name == $vol.name) | .mountPath] | unique | join(","))]
+  | @tsv'
+```
+
+Interprétation à faire ensuite **cas par cas**, avec preuve de backup ou caractère jetable de chaque dossier : il peut s'agir de caches/reports temporaires ou de données métier non persistées. Les huit services ne sont pas prouvés stateful du seul fait de la présence d'un `emptyDir` ; mais les exclure reste correct tant que les volumes ne sont pas qualifiés.
+
+**Sécurité** : le log d'initialisation CRC affiché dans la conversation contient un identifiant administrateur sensible ; ne jamais le copier dans ce dépôt, la CI ou un rapport public. Envisager une rotation/régénération conforme au mode d'authentification CRC en vigueur.
+
