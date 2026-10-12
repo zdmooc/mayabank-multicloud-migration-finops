@@ -47,3 +47,16 @@ https://github.com/zdmooc/mayabank-ibm-mq-native-ha-openshift-eda-platform/blob/
 
 Etat : trois projets statut PARK_PREPARED_CI_TESTED / LIVE_NOT_EXECUTED ; TradeOps et MQ en PREFLIGHT_PENDING. Instant Payments et Maya Freelance restent PARKED sans reprise automatique.
 LICENSE_GATE: PENDING — inventaire des droits du dépôt technique public incomplet, aucune licence modifiée.
+
+## CRC_RUNTIME_PARK_EXTRA_THREE_20261012
+
+**Exécution locale opérateur confirmée** : après mise à jour Git et tests offline (5 tests OK), PLAN puis PARK successifs du script `scripts/crc-extra-projects-mode.py` :
+- `trading` : `PARK_RESULT=PASS`, `rapport-horaire=0/0`, `CRONJOBS=NONE`, 1 Deployment arrêté ; snapshot privé `~/.crc-capacity/crc-trading.json`.
+- `decision` : `PARK_RESULT=PASS`, `decision-api=0/0`, autosync de `mayainsurance-decision` identifiée pour pause ; snapshot `~/.crc-capacity/crc-decision.json`.
+- `api` : `PARK_RESULT=PASS`, `api-gateway=0/0`, `payment-api=0/0` ; snapshot `~/.crc-capacity/crc-api.json`.
+
+**Attention à la lecture des logs** : les lignes `PARK_RESULT=PASS` et `RESUME_RESULT=PASS` imprimées **avant** `Ran 5 tests ... OK` sont les tests simulés qui emploient des fichiers temporaires, et **pas une reprise réelle sur le CRC**. Les trois PARK runtime sont prouvés par les sorties de la boucle et les contrôles `oc` qui suivent. Aucune reprise n'a été demandée.
+
+**Mesures locales** : avant ces trois PARK : `oc adm top nodes` `RAM=17221Mi (73%)` et requests mémoire `21315Mi (90%)` à la dernière baseline ; après : `RAM=16582Mi (70%)`, CPU `2253m (28%)`, requests `20771Mi (88%)`, requests CPU `6908m (88%)`. Écarts entre mesures espacées : RAM utilisée -639Mi ; réservée -544Mi ; CPU requests -185m. **Ne pas les assimiler à des économies exclusivement imputables aux 3 PARK**.
+
+**État consolidé** : 15 Deployments applicatifs arrêtés sur cinq projets (Instant Payments 9, Maya Freelance 2, Trading 1, Decision 1, API 2). Les bases et composants partagés de certains projets restent actifs. **Reste à préparer : TradeOps et IBM MQ** ; protection des StatefulSets sur emptyDir, messages/journaux MQ et base persistante toujours obligatoire. Statut `TRADING_DECISION_API_PARK_RUNTIME_PROVEN_20261012 / MQ_TRADEOPS_PENDING`.
