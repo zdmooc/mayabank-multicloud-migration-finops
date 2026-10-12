@@ -255,13 +255,20 @@ def plan() -> None:
     print("APPS_TO_PARK=" + ",".join(f"{d['name']}:{d['replicas']}->0" for d in selected))
     print("GITOPS_APPLICATIONS_TO_PAUSE=" + ",".join(a["name"] for a in apps))
     critical = [b for b in blocked if b.startswith(("ARGO_", "NO_AUTOSYNC_"))]
+    if len(selected) < 2:
+        critical.append("LESS_THAN_TWO_ELIGIBLE_RUNNING_DEPLOYMENTS")
     skipped = [b for b in blocked if b not in critical]
+    print(f"ELIGIBLE_DEPLOYMENTS_COUNT={len(selected)}")
+    print("PARK_MIN_ELIGIBLE_DEPLOYMENTS=2")
     print("SKIPPED_UNSAFE_OR_ABSENT=" + (",".join(skipped) if skipped else "NONE"))
     print("BLOCKERS=" + (",".join(critical) if critical else "NONE"))
     print(f"EXISTING_SNAPSHOT={STATE if STATE.exists() else 'NONE'}")
     print("DATA_STORES_AND_PLATFORM_NOT_SCALED=true")
     print("PROJECT_PARK_AUTHORIZATION=NOT_GIVEN_BY_PLAN")
-    print("NEXT=Only park when blockers NONE and operator chooses PARK with explicit confirmation.")
+    if critical:
+        print("NEXT=PARK_BLOCKED_NO_CLUSTER_ACTION_REVIEW_VOLUME_AND_DEPENDENCIES")
+    else:
+        print("NEXT=Only park with explicit operator approval after reviewing impact, GitOps ownership and safety.")
 
 
 def main() -> int:
