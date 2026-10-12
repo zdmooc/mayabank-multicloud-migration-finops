@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """CRC Instant Payments stateless-app PARK / RESUME with GitOps pause and rollback.
 
-Default is PLAN ONLY. PARK requires CRC_CAPACITY_PARK=YES.
+Default is PLAN ONLY. --assess-tmp-only is report-only and never enables PARK.\nPARK requires CRC_CAPACITY_PARK=YES.
 RESUME requires CRC_CAPACITY_RESUME=YES.
 Protected: database/Kafka/stateful workloads, PVC, pods, secrets, namespace.
 Do not use for OpenShift system namespaces or for production clusters.
@@ -57,23 +57,49 @@ def items(resource: str, ns: str) -> list[dict]:
     return data.get("items", [])
 
 
-def is_stateless(item: dict) -> tuple[bool, str]:
+def is_stateless(item: dict, assess_tmp_only: bool = False) -> tuple[bool, str]:
+    """Check template for PARK. /tmp-only is report-only, never allowed by park()."""
     spec = (((item.get("spec") or {}).get("template") or {}).get("spec") or {})
     volumes = spec.get("volumes") or []
-    for v in volumes:
-        if any(key in v for key in ("emptyDir", "persistentVolumeClaim", "hostPath", "ephemeral", "csi")):
-            return False, "DATA_OR_EPHEMERAL_VOLUME"
-    for c in (spec.get("containers") or []) + (spec.get("initContainers") or []):
-        if STATEFUL_IMAGE.search(c.get("image") or ""):
-            return False, "STATEFUL_CONTAINER_IMAGE"
+    containers = (spec.get("containers") or []) + (spec.get("initContainers") or [])
     if item.get("metadata", {}).get("deletionTimestamp"):
         return False, "TERMINATING"
     if not spec.get("containers"):
         return False, "NO_CONTAINERS"
+    for c in containers:
+        if STATEFUL_IMAGE.search(c.get("image") or ""):
+            return False, "STATEFUL_CONTAINER_IMAGE"
+
+    tmp_volumes = []
+    for v in volumes:
+        if any(key in v for key in ("persistentVolumeClaim", "hostPath", "ephemeral", "csi")):
+            return False, "DATA_OR_EPHEMERAL_VOLUME"
+        if "emptyDir" in v:
+            if not assess_tmp_only:
+                return False, "DATA_OR_EPHEMERAL_VOLUME"
+            if (v.get("name") != "tmp" or v.get("emptyDir") != {}
+                    or set(v) != {"name", "emptyDir"}):
+                return False, "NONTRIVIAL_EMPTYDIR"
+            tmp_volumes.append(v)
+    if tmp_volumes:
+        if len(tmp_volumes) != 1 or not containers:
+            return False, "INVALID_TMP_VOLUME"
+        for c in containers:
+            mounts = [m for m in c.get("volumeMounts") or [] if m.get("name") == "tmp"]
+            if len(mounts) != 1 or mounts[0].get("mountPath") != "/tmp":
+                return False, "TMP_MOUNT_NOT_EXCLUSIVE"
+            if any(k in mounts[0] for k in ("subPath", "subPathExpr", "mountPropagation")):
+                return False, "TMP_MOUNT_NOT_EXCLUSIVE"
+            if (c.get("securityContext") or {}).get("readOnlyRootFilesystem") is not True:
+                return False, "TMP_ROOT_NOT_READONLY"
+            for mount in c.get("volumeMounts") or []:
+                if mount.get("mountPath") == "/tmp" and mount.get("name") != "tmp":
+                    return False, "TMP_MOUNT_NOT_EXCLUSIVE"
+        return True, "TMP_ONLY_ASSESSMENT_NOT_PARK_APPROVAL"
     return True, "STATELESS_TEMPLATE"
 
 
-def inspect() -> tuple[list[dict], list[dict], list[str]]:
+def inspect(assess_tmp_only: bool = False) -> tuple[list[dict], list[dict], list[str]]:
     node = oc("get", "nodes", "-o", "json", json_result=True)
     names = [n.get("metadata", {}).get("name", "") for n in node.get("items", [])]
     if names != ["crc"]:
@@ -96,7 +122,7 @@ def inspect() -> tuple[list[dict], list[dict], list[str]]:
         if not x:
             blocked.append(f"{name}:ABSENT")
             continue
-        allowed, why = is_stateless(x)
+        allowed, why = is_stateless(x, assess_tmp_only=assess_tmp_only)
         if not allowed or name in hpa_targets:
             blocked.append(f"{name}:{'HPA_CONTROLLED' if name in hpa_targets else why}")
             continue
@@ -248,8 +274,8 @@ def resume() -> None:
     print(f"RESTORED_DEPLOYMENTS={len(snapshot['deployments'])}")
 
 
-def plan() -> None:
-    selected, apps, blocked = inspect()
+def plan(assess_tmp_only: bool = False) -> None:
+    selected, apps, blocked = inspect(assess_tmp_only=assess_tmp_only)
     print("MODE=PLAN_READ_ONLY")
     print(f"TARGET_NAMESPACE={NS}")
     print("APPS_TO_PARK=" + ",".join(f"{d['name']}:{d['replicas']}->0" for d in selected))
@@ -257,6 +283,10 @@ def plan() -> None:
     critical = [b for b in blocked if b.startswith(("ARGO_", "NO_AUTOSYNC_"))]
     if len(selected) < 2:
         critical.append("LESS_THAN_TWO_ELIGIBLE_RUNNING_DEPLOYMENTS")
+    if assess_tmp_only:
+        critical.append("TMP_ONLY_ASSESSMENT_NOT_PARK_AUTHORIZATION")
+        print("TMP_ONLY_ASSESSMENT=REPORT_ONLY")
+        print("TMP_ONLY_PARK_ENABLED=false")
     skipped = [b for b in blocked if b not in critical]
     print(f"ELIGIBLE_DEPLOYMENTS_COUNT={len(selected)}")
     print("PARK_MIN_ELIGIBLE_DEPLOYMENTS=2")
@@ -274,10 +304,14 @@ def plan() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("plan", "park", "resume"))
+    parser.add_argument("--assess-tmp-only", action="store_true",
+                        help="PLAN ONLY: assess strict /tmp emptyDir templates; never enables PARK")
     args = parser.parse_args()
     try:
+        if args.assess_tmp_only and args.mode != "plan":
+            raise RuntimeError("TMP_ONLY_ASSESSMENT_IS_PLAN_ONLY")
         if args.mode == "plan":
-            plan()
+            plan(assess_tmp_only=args.assess_tmp_only)
         elif args.mode == "park":
             park()
         else:
