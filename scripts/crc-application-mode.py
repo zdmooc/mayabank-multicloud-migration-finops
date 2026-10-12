@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """CRC Instant Payments stateless-app PARK / RESUME with GitOps pause and rollback.
 
-Default is PLAN ONLY. --assess-tmp-only is report-only and never enables PARK.\nPARK requires CRC_CAPACITY_PARK=YES.
+Default is PLAN ONLY. --assess-tmp-only is report-only and never enables PARK.\nExplicit --allow-tmp-only PARK needs THREE human acknowledgements.\nPARK requires CRC_CAPACITY_PARK=YES.
 RESUME requires CRC_CAPACITY_RESUME=YES.
 Protected: database/Kafka/stateful workloads, PVC, pods, secrets, namespace.
 Do not use for OpenShift system namespaces or for production clusters.
@@ -199,12 +199,20 @@ def scale(name: str, count: int) -> None:
         raise RuntimeError(f"DEPLOYMENT_SCALE_MISMATCH={name}")
 
 
-def park() -> None:
+def park(allow_tmp_only: bool = False) -> None:
     if os.environ.get("CRC_CAPACITY_PARK") != "YES":
         raise RuntimeError("PARK_REQUIRES_CRC_CAPACITY_PARK=YES")
+    if allow_tmp_only and (
+        os.environ.get("CRC_PARK_ACK_PAYMENT_DOWNTIME") != "YES" or
+        os.environ.get("CRC_PARK_ACK_TMP_DATA_LOSS") != "YES" or
+        os.environ.get("CRC_PARK_ACK_PROCESSING_QUIESCED") != "YES"
+    ):
+        raise RuntimeError("TMP_ONLY_PARK_REQUIRES_DOWNTIME_TMP_AND_QUIESCENCE_ACKS")
     if STATE.exists() and load_state().get("status") != "RESUMED":
         raise RuntimeError(f"EXISTING_ACTIVE_SNAPSHOT={STATE} — use resume, no overwrite")
-    selected, applications, blocked = inspect()
+    selected, applications, blocked = inspect(assess_tmp_only=allow_tmp_only)
+    if allow_tmp_only and {d["name"] for d in selected} != set(TARGETS):
+        raise RuntimeError("TMP_ONLY_PARK_EXPECTS_NINE_ELIGIBLE_PAYMENT_DEPLOYMENTS")
     critical = [b for b in blocked if b.startswith(("ARGO_", "NO_AUTOSYNC_"))]
     if critical:
         raise RuntimeError("PARK_BLOCKED=" + ",".join(critical))
@@ -214,7 +222,7 @@ def park() -> None:
         "status": "PARKING", "namespace": NS,
         "captured_at_utc": datetime.now(timezone.utc).isoformat(),
         "deployments": selected, "applications": applications,
-        "skipped": blocked,
+        "skipped": blocked, "tmp_only_approved": allow_tmp_only,
     }
     write_state(snapshot)
     try:
@@ -305,15 +313,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("plan", "park", "resume"))
     parser.add_argument("--assess-tmp-only", action="store_true",
-                        help="PLAN ONLY: assess strict /tmp emptyDir templates; never enables PARK")
+                        help="PLAN ONLY: strict /tmp emptyDir assessment, no mutations")
+    parser.add_argument("--allow-tmp-only", action="store_true",
+                        help="PARK ONLY: requires downtime, quiescence and ephemeral loss acknowledgements")
     args = parser.parse_args()
     try:
         if args.assess_tmp_only and args.mode != "plan":
             raise RuntimeError("TMP_ONLY_ASSESSMENT_IS_PLAN_ONLY")
+        if args.allow_tmp_only and args.mode != "park":
+            raise RuntimeError("TMP_ONLY_PARK_FLAG_IS_PARK_ONLY")
         if args.mode == "plan":
             plan(assess_tmp_only=args.assess_tmp_only)
         elif args.mode == "park":
-            park()
+            park(allow_tmp_only=args.allow_tmp_only)
         else:
             resume()
         return 0
