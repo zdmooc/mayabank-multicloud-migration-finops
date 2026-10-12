@@ -118,9 +118,9 @@ class ParkSafetyTests(unittest.TestCase):
                  "automated": {"selfHeal": True}, "uid": "argocd-uid"}]
         exclusions = ["payment-orchestrator:DATA_OR_EPHEMERAL_VOLUME"]
         output = StringIO()
-        with patch.object(mod, "inspect", return_value=(allowed, apps, exclusions)), \\
-             redirect_stdout(output):
-            mod.plan()
+        with patch.object(mod, "inspect", return_value=(allowed, apps, exclusions)):
+            with redirect_stdout(output):
+                mod.plan()
         text = output.getvalue()
         self.assertIn("ELIGIBLE_DEPLOYMENTS_COUNT=1", text)
         self.assertIn("BLOCKERS=LESS_THAN_TWO_ELIGIBLE_RUNNING_DEPLOYMENTS", text)
