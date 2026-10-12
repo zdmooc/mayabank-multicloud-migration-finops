@@ -95,3 +95,20 @@ La reprise restaure les réplicas enregistrés, puis les politiques Argo automat
 - `B_PLANNED` -> `B_PARKED` ou `B_BLOCKED`.
 - Aucun état PARKED n'est déclaré avant réception d'une sortie locale attestant les réplicas à zéro et le résultat des scripts.
 - Aucun Cloud provisionné. `I1` reste ouvert pour P95 et BOM.
+
+
+## Exécution opérateur du 12 octobre — vague A réellement PARKED
+
+L'opérateur a exécuté sur OpenShift Local CRC le PARK des neuf Deployments Instant Payments avec approbations explicites de l'indisponibilité, des fichiers temporaires et de la quiescence. **Résultats runtime observés :**
+
+- `PARK_RESULT=PASS`, `PARKED_DEPLOYMENTS=9`, `SKIPPED_UNSAFE_OR_ABSENT=NONE`.
+- Les neuf Deployments visés sont en `READY=0/0`, `UP-TO-DATE=0` et `AVAILABLE=0` dans `oc -n instant-payments-local get deploy`.
+- Une copie locale du snapshot de reprise a été créée dans `~/.crc-capacity/instant-payments-local.json`. **Ne pas publier le chemin machine ni les données privées du snapshot.**
+- Les Deployments non ciblés (Kafka, PostgreSQL, Grafana, Prometheus, Loki, Alloy et autres) étaient toujours à `1/1` dans la sortie. Les StatefulSets et PVC n'ont pas été modifiés par le script.
+- Consommation nœud juste avant : CPU `3795m (48%)`, mémoire `18646Mi (79%)`.
+- Consommation nœud juste après : CPU `3306m (42%)`, mémoire `17470Mi (74%)`.
+- **Écarts instantanés** : CPU `-489m` et RAM `-1176Mi` (~`1.15Gi`). Non imputables intégralement aux workloads sans contrôle de charge identique et mesures temporelles, mais cohérents avec une libération réelle. Les métriques pré-/post- ne sont pas un P95.
+- Le snapshot n'est pas une sauvegarde des données métier. Aucun `RESUME` n'a été demandé, ne pas réactiver les services automatiquement.
+
+**Verdict A : `INSTANT_PAYMENTS_APP_TIER_PARKED_CRC_RUNTIME_PROVEN`.**
+**Verdict B : `MAYA_FREELANCE_PLAN_PENDING`** : passer au `python scripts/crc-maya-freelance-mode.py plan` et à `oc -n maya-freelance get deploy,pvc`, vérifier le gel des workflows n8n avant la prochaine opération. Ne pas exécuter le PARK B en l'absence de ces preuves.
