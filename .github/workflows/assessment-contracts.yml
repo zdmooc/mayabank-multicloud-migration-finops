@@ -54,5 +54,9 @@ jobs:
         run: python -m py_compile scripts/crc-maya-freelance-mode.py
       - name: Run Maya Freelance reversible parking safety tests
         run: python tests/test_crc_maya_freelance_mode.py
+      - name: Compile remaining-projects reversible sleep control
+        run: python -m py_compile scripts/crc-extra-projects-mode.py
+      - name: Test trading cronjob, Decision Argo and API PARK/RESUME contracts
+        run: python tests/test_crc_extra_projects_mode.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
