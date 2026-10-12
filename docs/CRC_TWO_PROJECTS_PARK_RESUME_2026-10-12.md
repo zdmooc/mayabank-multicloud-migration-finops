@@ -112,3 +112,30 @@ L'opérateur a exécuté sur OpenShift Local CRC le PARK des neuf Deployments In
 
 **Verdict A : `INSTANT_PAYMENTS_APP_TIER_PARKED_CRC_RUNTIME_PROVEN`.**
 **Verdict B : `MAYA_FREELANCE_PLAN_PENDING`** : passer au `python scripts/crc-maya-freelance-mode.py plan` et à `oc -n maya-freelance get deploy,pvc`, vérifier le gel des workflows n8n avant la prochaine opération. Ne pas exécuter le PARK B en l'absence de ces preuves.
+
+
+## Exécution opérateur du 12 octobre — vague B Maya Freelance réellement PARKED
+
+Préflight observé : `DEPLOYMENTS_TO_PARK=n8n:1->0,maya-dashboard:1->0`, `ARGO_APPS_TO_PAUSE=NONE`, PVC `postgres-data` Bound, 79 Gi provisionnés (capacité, **pas** occupation réelle). L'opérateur a confirmé les quatre acquittements requis puis exécuté `python scripts/crc-maya-freelance-mode.py park` sur son CRC.
+
+Preuves runtime :
+- `PARK_RESULT=PASS`, `PARKED_DEPLOYMENTS=2`, `DATABASE_AND_PVC_UNCHANGED=true`.
+- `deployment.apps/n8n=0/0` et `deployment.apps/maya-dashboard=0/0` ; `deployment.apps/postgres=1/1`.
+- PVC `postgres-data` reste `Bound`, provisionné 79Gi via `crc-csi-hostpath-provisioner`.
+- Snapshot de reprise créé et conservé localement hors Git : `~/.crc-capacity/maya-freelance.json` (ne pas publier de chemin personnel).
+- Sortie pods : ancien historique de 5 pods `Completed` pour les builds du dashboard et un pod PostgreSQL `Running`. Ces anciens builds ne sont pas une charge CPU/RAM active.
+- `oc adm top nodes` : avant `CPU=2336m/RAM=17692Mi (75%)` ; immédiatement après `CPU=2336m/RAM=17692Mi (75%)`. **Aucun gain additionnel établi par ces deux instantanés** ; métriques potentiellement temporisées et bruit de charge, réévaluer après stabilisation.
+- Les deux applications restent indisponibles jusqu'à l'ordre de reprise de l'utilisateur ; ne pas lancer `resume` sans demande. Le snapshot constitue un état de réplicas et de politique Argo, **pas** un backup PostgreSQL ou une preuve E2E de restauration.
+
+**Statuts consolidés** : `INSTANT_PAYMENTS_APP_TIER_PARKED_CRC_RUNTIME_PROVEN` (9 Deployments), `MAYA_APP_TIER_PARKED_CRC_RUNTIME_PROVEN` (2 Deployments). Infrastructure stateful (DB, Kafka/MongoDB, observabilité) toujours active. L'objectif de désactivation complète de tous les composants gourmands en ressources n'est pas atteint ; requiert gate distinct de sauvegarde, arrêt contrôlé et restauration.
+
+Prochain relevé strictement read-only :
+
+```bash
+oc adm top nodes
+oc -n instant-payments-local get deploy
+oc -n maya-freelance get deploy,pvc
+oc adm top pods -n maya-freelance --containers
+```
+
+**LICENSE_GATE: NOT_APPLICABLE** pour la documentation de mesures opérateur fournie sans nouveau contenu tiers ; le dépôt public demeure à revoir pour sa politique racine globale.
