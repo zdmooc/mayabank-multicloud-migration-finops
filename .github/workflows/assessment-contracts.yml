@@ -50,5 +50,9 @@ jobs:
         run: python -m py_compile scripts/crc-application-mode.py
       - name: Test bounded reversible GitOps-aware project mode without cluster access
         run: python tests/test_crc_application_mode.py
+      - name: Compile Maya Freelance safe project PARK/RESUME
+        run: python -m py_compile scripts/crc-maya-freelance-mode.py
+      - name: Run Maya Freelance reversible parking safety tests
+        run: python tests/test_crc_maya_freelance_mode.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
