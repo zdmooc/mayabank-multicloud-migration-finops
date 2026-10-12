@@ -144,3 +144,25 @@ oc describe node crc | sed -n '/Allocated resources:/,/Events:/p' | head -11
 
 Statuts `MQ_WORKLOADS_ZERO_PODS_ABSENT / MQ_SNAPSHOT_PARTIAL_TO_FINALIZE / TRADEOPS_NOT_TOUCHED`, pas encore `ALL_SEVEN_PARKED`. Les sources Git et les PVC subsistent. Réactivation uniquement sur ordre ultérieur.
 
+
+
+## CRC_ALL_SEVEN_SLEEP_RUNTIME_PROVEN_20261012
+
+**Dernière observation réelle du 12/10/2026 — tous les sept projets du périmètre mis en veille selon leurs modes respectifs.** La preuve est la sortie locale communiquée par l'opérateur et non une exécution de GitHub Actions.
+
+- `mq` : après le `PARK_PARTIAL` initial lié à `RUNNING_PODS_REMAIN`, le correctif a été récupéré et `python scripts/crc-deep-sleep.py finalize --project mq` a rendu `FINALIZE_RESULT=PASS`, `PVC_DELETED=0`. Dans `mayabank-mq-local`, les cinq Deployments `mq`, `mq-ops-api`, `mq-prometheus-exporter`, `payment-processing`, `payments-db` sont `0/0` ; les PVC `mq-data` et `payments-db-data` restent `Bound` (capacité affichée 79Gi chacun, pas occupation disque). Le snapshot `~/.crc-capacity/crc-deep-mq.json` est à préserver.
+- `tradeops` : l'opérateur a exécuté `park --project tradeops` avec acquittements de perte de données labo. `PARK_RESULT=PASS`, `PVC_DELETED=0`. Tous les 15 Deployments, dont `prometheus`, sont désormais `0/0`. Les trois StatefulSets `postgres`, `qdrant`, `redpanda` sont également `0/0`. Le snapshot `~/.crc-capacity/crc-deep-tradeops.json` est à préserver. Les pods `Completed`, `Error` et `ContainerStatusUnknown` restant listés dans `tradeops` ne sont pas des pods applicatifs Running ; leur suppression n'est pas nécessaire pour récupérer la RAM.
+- Les cinq projets précédemment mis en veille (Instant Payments, Maya Freelance, Trading personnel, Decision AI/ODM, API Management) n'ont pas été réactivés. **Total : 7/7 en veille selon le périmètre d'arrêt approuvé.** Attention : cela ne signifie pas que toutes les dépendances de ces sept namespaces sont arrêtées (PostgreSQL, Kafka, monitoring, etc. restent présents sur certains projets).
+
+**Dernier relevé de capacité :**
+
+| Mesure | Avant arrêt MQ + TradeOps | Après deux arrêts | Variation |
+|---|---:|---:|---:|
+| CPU requests | 6908m (88%) | 5833m (74%) | -1075m |
+| Memory requests | 20771Mi (88%) | 18211Mi (77%) | -2560Mi |
+| Mémoire réellement consommée | 16582Mi (70%) | 16684Mi (70%) | +102Mi |
+
+Les réservations sont bien libérées ; la RAM réellement consommée varie indépendamment, donc ne pas annoncer 2,5Gi de RAM physique récupérés. Le socle OpenShift demeure actif et consomme l'essentiel. Dernier CPU utilisé : `1598m (20%)`.
+
+**Suite** : ne réactiver aucun projet sans demande explicite. Faire un contrôle de capacité/readiness à l'arrivée de la prochaine mission et reprendre uniquement les composants nécessaires. Une reprise ne garantit pas le retour des données `emptyDir`/messages MQ perdus ; reconstruction/test E2E nécessaires. Aucun namespace, PVC ou Secret n'a été supprimé par les procédures et le socle OpenShift n'a pas été mis en veille. Les anciens marqueurs historiques `OPEN/PARTIAL/PENDING` dans les sections précédentes sont supplantés par ce compte rendu final, mais la validation de reconstruction après reprise reste ouverte.
+
