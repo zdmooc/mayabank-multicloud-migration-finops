@@ -62,5 +62,9 @@ jobs:
         run: python -m py_compile scripts/crc-deep-sleep.py
       - name: Check deep sleep syntax contract offline
         run: python tests/test_crc_deep_sleep.py
+      - name: Compile residual Instant Payments and Keycloak lab parking
+        run: python -m py_compile scripts/crc-idle-services-mode.py
+      - name: Run offline residual lab shutdown tests
+        run: python tests/test_crc_idle_services.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
