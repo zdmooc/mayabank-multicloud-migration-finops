@@ -84,7 +84,7 @@ class MayaSafety(unittest.TestCase):
                 self.assertEqual(len([e for e in events if e[0] == "scale"]), 2)
                 self.assertEqual(events[0], ("argo", ("maya", None)))
                 with patch.object(mod, "oc", side_effect=lambda *args, **kwargs: {
-                        "metadata": {"uid": "uid-" + args[3]}}):
+                        "metadata": {"uid": "uid-" + args[4]}}):
                     with patch.object(mod, "app_auto", return_value=None):
                         with patch.object(mod, "change_auto", side_effect=lambda *a: events.append(("argo", a))):
                             with patch.object(mod, "scale", side_effect=lambda *a: events.append(("scale", a))):
