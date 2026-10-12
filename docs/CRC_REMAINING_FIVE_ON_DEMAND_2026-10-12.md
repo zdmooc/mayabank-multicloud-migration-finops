@@ -112,3 +112,35 @@ La reprise tente de restaurer les réplicas et attend la readiness des bases/que
 
 **Statut de ce document : `DEEP_PARK_IMPLEMENTED / CRC_EXECUTION_PENDING`** jusqu'à réception des sorties de l'opérateur.
 **LICENSE_GATE: PENDING** pour la licence racine et provenance globale du dépôt public ; aucun tiers n'est ajouté, aucune licence attribuée ni changée.
+
+
+## 12 octobre — MQ à zéro, snapshot encore PARTIAL : correction du faux négatif de terminaison
+
+L'opérateur a exécuté la mise en veille profonde avec les quatre acquittements. Toutes les étapes `STOP` de `mq` (payment-processing, mq-ops-api, mq-prometheus-exporter, mq, payments-db) se sont exécutées. Le script initial signalait `RUNNING_PODS_REMAIN`, alors qu'un relevé ultérieur sur `mayabank-mq-local` montre les **cinq Deployments 0/0, aucun pod listé**, et `mq-data` + `payments-db-data` toujours `Bound`. Cet échec apparaît cohérent avec un décalage entre la disparition des replicas gérés et la fin de terminaison d'un pod, mais la cause exacte n'a pas été capturée. **Snapshot `crc-deep-mq.json` = `PARK_PARTIAL` jusqu'à revalidation.** Ne pas relancer `park --project mq` : le snapshot non-RESUMED serait justement bloquant.
+
+Aucune opération TradeOps n'a eu lieu : la boucle `for ... || break` a interrompu l'exécution après l'échec MQ ; TradeOps conserve `prometheus=1` et `postgres/qdrant/redpanda=1`.
+
+Mesures après arrêt MQ, non stabilisées : `CPU requests=6058m (77%)`, `memory requests=18979Mi (80%)`, consommation nœud `17619Mi (74%)`. Baseline antérieure `6908m CPU requests`, `20771Mi memory requests` ; différence de réservations `-850m CPU` / `-1792Mi RAM`, correspondant aux 5 pods MQ.
+
+Correction FinOps : `scripts/crc-deep-sleep.py` attend désormais la fin des pods encore `Running` avant `PARK_RESULT=PASS`, et expose `finalize --project mq` exclusivement pour un snapshot `PARK_PARTIAL`. **Finalize vérifie sans modifier le cluster** : UID du nœud/namespace/Deployments/Argo/PVC, zéro replica désiré et ready pour chaque workload, CronJobs suspendus, auto-sync des Argo qui étaient AUTO toujours absent, absence de pod Running ; seule l'étiquette de statut du snapshot local est modifiée en `PARKED`. Si le contrôle échoue, aucun snapshot marqué `PARKED`, et ne pas poursuivre.
+
+Prochaine intervention opérateur :
+
+```bash
+cd /c/workspaces/mayabank-multicloud-migration-finops
+git pull --ff-only
+python tests/test_crc_deep_sleep.py
+python scripts/crc-deep-sleep.py finalize --project mq
+
+# UNIQUEMENT SI FINALIZE_RESULT=PASS
+CRC_DEEP_PARK=YES CRC_ACK_DATA_LOSS=YES CRC_ACK_DOWNTIME=YES CRC_ACK_REBUILD=YES \
+  python scripts/crc-deep-sleep.py park --project tradeops
+
+oc -n mayabank-mq-local get deploy,pods,pvc
+oc -n tradeops get deploy,sts,pods
+oc adm top nodes
+oc describe node crc | sed -n '/Allocated resources:/,/Events:/p' | head -11
+```
+
+Statuts `MQ_WORKLOADS_ZERO_PODS_ABSENT / MQ_SNAPSHOT_PARTIAL_TO_FINALIZE / TRADEOPS_NOT_TOUCHED`, pas encore `ALL_SEVEN_PARKED`. Les sources Git et les PVC subsistent. Réactivation uniquement sur ordre ultérieur.
+
