@@ -126,6 +126,64 @@ class ParkSafetyTests(unittest.TestCase):
         self.assertIn("BLOCKERS=LESS_THAN_TWO_ELIGIBLE_RUNNING_DEPLOYMENTS", text)
         self.assertIn("PARK_BLOCKED_NO_CLUSTER_ACTION", text)
 
+    def test_tmp_only_assessment_never_enabled_for_park(self):
+        d = deployment("payment-orchestrator", "example.com/app:v1",
+                       [{"name": "tmp", "emptyDir": {}}])
+        d["spec"]["template"]["spec"]["containers"][0]["volumeMounts"] = [
+            {"name": "tmp", "mountPath": "/tmp"}
+        ]
+        d["spec"]["template"]["spec"]["containers"][0]["securityContext"] = {
+            "readOnlyRootFilesystem": True
+        }
+        allowed, why = mod.is_stateless(d, assess_tmp_only=True)
+        self.assertTrue(allowed)
+        self.assertEqual(why, "TMP_ONLY_ASSESSMENT_NOT_PARK_APPROVAL")
+        self.assertEqual(mod.is_stateless(d)[1], "DATA_OR_EPHEMERAL_VOLUME")
+        result = StringIO()
+        with patch.object(mod, "inspect", return_value=(
+            [{"name": "payment-orchestrator", "replicas": 1, "uid": "p"},
+             {"name": "wero-ui", "replicas": 1, "uid": "w"}],
+            [{"name": "instant-payments-local", "automated": {"selfHeal": True}, "uid": "a"}],
+            [])):
+            with redirect_stdout(result):
+                mod.plan(assess_tmp_only=True)
+        out = result.getvalue()
+        self.assertIn("TMP_ONLY_PARK_ENABLED=false", out)
+        self.assertIn("BLOCKERS=TMP_ONLY_ASSESSMENT_NOT_PARK_AUTHORIZATION", out)
+
+    def test_tmp_only_assessment_rejects_non_tmp_paths_and_data(self):
+        base = deployment("consumer-psp", "demo:v1", [{"name": "tmp", "emptyDir": {}}])
+        c = base["spec"]["template"]["spec"]["containers"][0]
+        c["securityContext"] = {"readOnlyRootFilesystem": True}
+        c["volumeMounts"] = [{"name": "tmp", "mountPath": "/tmp"}]
+        def check(volumes=None, mount=None, readonly=None):
+            d = deployment("consumer-psp", "demo:v1", volumes or [{"name": "tmp", "emptyDir": {}}])
+            target = d["spec"]["template"]["spec"]["containers"][0]
+            target["securityContext"] = {"readOnlyRootFilesystem": True if readonly is None else readonly}
+            target["volumeMounts"] = [mount if mount is not None else {"name": "tmp", "mountPath": "/tmp"}]
+            return mod.is_stateless(d, assess_tmp_only=True)[0]
+        self.assertFalse(check(mount={"name": "tmp", "mountPath": "/var/lib/postgresql/data"}))
+        self.assertFalse(check(mount={"name": "tmp", "mountPath": "/tmp", "subPath": "session"}))
+        self.assertFalse(check(readonly=False))
+        self.assertFalse(check(volumes=[{"name": "data", "emptyDir": {}}]))
+        self.assertFalse(check(volumes=[{"name": "tmp", "emptyDir": {}},
+                                         {"name": "state", "persistentVolumeClaim": {"claimName": "db"}}]))
+        self.assertFalse(check(volumes=[{"name": "tmp", "emptyDir": {"medium": "Memory"}}]))
+        self.assertTrue(check())
+
+    def test_park_cannot_use_tmp_assessment_flag(self):
+        with patch.dict(os.environ, {"CRC_CAPACITY_PARK": "YES"}):
+            # Even after reporting tmp candidate, operational inspect() stays restrictive.
+            def inspect(assess_tmp_only=False):
+                self.assertFalse(assess_tmp_only)
+                return ([{"name": "wero-ui", "replicas": 1, "uid": "ui"}],
+                        [{"name": "instant-payments-tech-lead-shared-platform",
+                          "automated": {"selfHeal": True}, "uid": "app"}], [])
+            with patch.object(mod, "inspect", side_effect=inspect):
+                with self.assertRaisesRegex(RuntimeError,
+                                            "LESS_THAN_TWO_ELIGIBLE_RUNNING_DEPLOYMENTS"):
+                    mod.park()
+
     def test_park_needs_explicit_permission(self):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "REQUIRES"):
