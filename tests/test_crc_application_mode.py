@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import importlib.util
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -109,6 +111,20 @@ class ParkSafetyTests(unittest.TestCase):
                 ])
             finally:
                 mod.STATE = original_state
+
+    def test_plan_reports_park_blocker_if_only_one_eligible(self):
+        allowed = [{"name": "wero-ui", "replicas": 1, "uid": "ui-uid"}]
+        apps = [{"name": "instant-payments-tech-lead-shared-platform",
+                 "automated": {"selfHeal": True}, "uid": "argocd-uid"}]
+        exclusions = ["payment-orchestrator:DATA_OR_EPHEMERAL_VOLUME"]
+        output = StringIO()
+        with patch.object(mod, "inspect", return_value=(allowed, apps, exclusions)), \\
+             redirect_stdout(output):
+            mod.plan()
+        text = output.getvalue()
+        self.assertIn("ELIGIBLE_DEPLOYMENTS_COUNT=1", text)
+        self.assertIn("BLOCKERS=LESS_THAN_TWO_ELIGIBLE_RUNNING_DEPLOYMENTS", text)
+        self.assertIn("PARK_BLOCKED_NO_CLUSTER_ACTION", text)
 
     def test_park_needs_explicit_permission(self):
         with patch.dict(os.environ, {}, clear=True):
