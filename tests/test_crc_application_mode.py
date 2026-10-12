@@ -184,6 +184,44 @@ class ParkSafetyTests(unittest.TestCase):
                                             "LESS_THAN_TWO_ELIGIBLE_RUNNING_DEPLOYMENTS"):
                     mod.park()
 
+    def test_approved_tmp_park_requires_three_explicit_acknowledgements(self):
+        chosen = [{"name": n, "replicas": 1, "uid": "uid-" + n} for n in mod.TARGETS]
+        application = [{"name": "instant-payments-tech-lead-shared-platform",
+                        "automated": {"selfHeal": True}, "uid": "argocd-uid"}]
+        with TemporaryDirectory() as td:
+            previous = mod.STATE
+            mod.STATE = Path(td) / "state.json"
+            try:
+                with patch.object(mod, "inspect", return_value=(chosen, application, [])):
+                    with patch.dict(os.environ, {"CRC_CAPACITY_PARK": "YES"}, clear=True):
+                        with self.assertRaisesRegex(RuntimeError, "QUIESCENCE_ACKS"):
+                            mod.park(allow_tmp_only=True)
+                with patch.object(mod, "inspect", return_value=(chosen, application, [])):
+                    with patch.object(mod, "pause_gitops"):
+                        with patch.object(mod, "scale"):
+                            with patch.dict(os.environ, {
+                                "CRC_CAPACITY_PARK": "YES",
+                                "CRC_PARK_ACK_PAYMENT_DOWNTIME": "YES",
+                                "CRC_PARK_ACK_TMP_DATA_LOSS": "YES",
+                                "CRC_PARK_ACK_PROCESSING_QUIESCED": "YES"}, clear=True):
+                                mod.park(allow_tmp_only=True)
+                self.assertEqual(mod.load_state()["status"], "PARKED")
+                self.assertEqual(len(mod.load_state()["deployments"]), 9)
+                self.assertTrue(mod.load_state()["tmp_only_approved"])
+            finally:
+                mod.STATE = previous
+
+    def test_approved_tmp_park_rejects_partial_nine_app_set(self):
+        with patch.dict(os.environ, {
+            "CRC_CAPACITY_PARK": "YES",
+            "CRC_PARK_ACK_PAYMENT_DOWNTIME": "YES",
+            "CRC_PARK_ACK_TMP_DATA_LOSS": "YES",
+            "CRC_PARK_ACK_PROCESSING_QUIESCED": "YES"}, clear=True):
+            with patch.object(mod, "inspect", return_value=(
+                [{"name": "wero-ui", "replicas": 1, "uid": "x"}], [], [])):
+                with self.assertRaisesRegex(RuntimeError, "NINE_ELIGIBLE"):
+                    mod.park(allow_tmp_only=True)
+
     def test_park_needs_explicit_permission(self):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "REQUIRES"):
