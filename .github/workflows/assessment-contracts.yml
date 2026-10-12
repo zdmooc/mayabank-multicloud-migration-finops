@@ -58,5 +58,9 @@ jobs:
         run: python -m py_compile scripts/crc-extra-projects-mode.py
       - name: Test trading cronjob, Decision Argo and API PARK/RESUME contracts
         run: python tests/test_crc_extra_projects_mode.py
+      - name: Compile deep CRC lab sleep utility
+        run: python -m py_compile scripts/crc-deep-sleep.py
+      - name: Check deep sleep syntax contract offline
+        run: python tests/test_crc_deep_sleep.py
       - name: Verify inventory, capacity and financial truth boundaries
         run: python scripts/validate_assessment.py
