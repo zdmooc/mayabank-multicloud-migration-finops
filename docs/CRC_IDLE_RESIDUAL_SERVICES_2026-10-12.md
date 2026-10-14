@@ -84,3 +84,14 @@ Ces relevés ne prouvent pas une réduction strictement imputable de la consomma
 
 **Conclusion** : les sept POC personnels et leurs derniers services résiduels Instant Payments et Keycloak sont en veille selon le périmètre approuvé. Certains services OpenShift `openshift-*` et l'opérateur Keycloak restent actifs. **Ne pas tenter une nouvelle mise en veille** tant que ces snapshots sont `PARKED`. Reprise exclusivement sur ordre utilisateur, avec possible reconstruction des données éphémères. Ne pas confondre mise en veille de projets et arrêt de la VM CRC.
 
+## Observation de fin de séance — 14 octobre 2026 : arrêt CRC et Docker/Kind
+
+**Source : sortie opérateur sur le HP ZBook (pas une mesure automatique du dépôt).**
+
+- `crc stop` a retourné `Stopped the instance` ; `crc status` a confirmé `CRC VM: Stopped` et `OpenShift: Stopped (v4.22.7)`. C'est la **première preuve de CRC arrêté explicitement** remontée dans ce suivi après la politique du 12 octobre.
+- Docker Desktop a ensuite été démarré **séparément**, Docker Engine Linux 28.3.2 prêt (Docker Desktop 4.43.2). L'exécution d'un PostgreSQL 16 **éphémère** du cas CAPS REST/MQ a été validée, `CASE01_POSTGRES_DOCKER_TEST=PASS` (9 tests JDBC, 5 HTTP/DB, 1 test deuxième JVM). La sortie annonce le nettoyage du conteneur jetable, sans contrôle de son absence par `docker ps` après exécution.
+- **Effet de bord constaté au démarrage Docker :** les trois conteneurs du cluster Kind `edl-lab-control-plane`, `edl-lab-worker` et `edl-lab-worker2` étaient tous `Up`. Ce cluster Kind n'était **pas nécessaire** au test PostgreSQL ; il peut contribuer à la consommation mémoire. Il n'y a **pas** de preuve de suppression, de mise en veille ou d'arrêt de ces trois conteneurs après le test.
+- **Règle de capacité inchangée :** ne pas exécuter CRC et Docker/Kind simultanément ; arrêter Docker Desktop après le laboratoire **si aucune autre charge n'en dépend**, sans supprimer Kind ni les ressources persistantes. Lors des prochains démarrages de Docker, refaire `docker ps` car des conteneurs Kind peuvent se relancer automatiquement.
+- Les applications des sept projets CRC restent consignées comme `PARKED`. Le `crc stop` n'est **pas** une réactivation, et il ne supprime ni PVC ni snapshots.
+
+Pour les preuves applicatives exactes, voir [formation-was — cas 01, section PostgreSQL](https://github.com/zdmooc/formation-was/blob/caps-case01-postgres-durability/phase-14-rest-vs-mq-case01/README.md). Aucun traitement sur CRC, MQ ou Kind n'a été lancé par cette mise à jour documentaire.
